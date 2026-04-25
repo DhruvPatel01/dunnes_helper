@@ -1,6 +1,6 @@
 <template>
-  <div class="flex flex-col h-full">
-    <div class="flex-shrink-0 px-4 py-3 bg-white border-b border-gray-100">
+  <div class="view-root">
+    <div class="page-header">
       <h1 class="text-lg font-bold text-gray-900">Catalog</h1>
       <p class="text-xs text-gray-400 mt-0.5">{{ catalog.items.length }} product{{ catalog.items.length !== 1 ? 's' : '' }}</p>
     </div>

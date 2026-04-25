@@ -28,8 +28,8 @@ function parseRow(line) {
 }
 
 export function generateCsv(items) {
-  const header = 'name,price'
-  const rows = items.map(item => `${escapeCell(item.name)},${item.price.toFixed(2)}`)
+  const header = 'name,category,price'
+  const rows = items.map(item => `${escapeCell(item.name)},${escapeCell(item.category)},${item.price.toFixed(2)}`)
   return [header, ...rows].join('\n')
 }
 

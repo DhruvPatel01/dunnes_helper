@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col h-full">
+  <div class="view-root">
     <div class="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-white border-b border-gray-100">
       <div class="flex-1 flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-xl">
         <svg class="w-4 h-4 text-gray-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -14,7 +14,7 @@
       </div>
     </div>
 
-    <div class="flex-1 overflow-y-auto">
+    <div class="scroll-area">
       <div v-if="filtered.length === 0" class="flex items-center justify-center h-full">
         <p class="text-gray-400 text-sm text-center px-8">
           {{ searchQuery ? 'No products match your search.' : 'Your catalog is empty.' }}

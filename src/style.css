@@ -13,6 +13,31 @@
   }
 }
 
+@layer components {
+  /* Layout */
+  .view-root        { @apply flex flex-col h-full; }
+  .page-header      { @apply flex-shrink-0 px-4 py-3 bg-white border-b border-gray-100; }
+  .scroll-area      { @apply flex-1 overflow-y-auto; }
+  .modal-footer     { @apply flex-shrink-0 px-4 py-3 bg-white border-t border-gray-100; }
+
+  /* Modal chrome */
+  .sheet-overlay    { @apply fixed inset-0 z-50 flex items-end justify-center; }
+  .sheet-scrim      { @apply absolute inset-0 bg-black/50; }
+  .sheet-panel      { @apply relative w-full max-w-sm bg-white rounded-t-2xl; }
+  .modal-fullscreen { @apply fixed inset-0 z-50 flex flex-col bg-white; }
+
+  /* Rows */
+  .list-row         { @apply flex items-center px-4 py-3 border-b border-gray-50; }
+
+  /* Inputs — visual shell; override py/px/text inline as needed */
+  .input            { @apply px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-primary; }
+
+  /* Buttons — visual shell only, no padding/width; add sizing inline */
+  .btn-primary      { @apply bg-primary text-white rounded-xl font-medium active:bg-primary-600; }
+  .btn-secondary    { @apply border border-gray-200 rounded-xl text-gray-700 font-medium; }
+  .btn-danger       { @apply bg-red-600 text-white rounded-xl font-medium active:bg-red-700; }
+}
+
 @layer utilities {
   .h-dvh {
     height: 100dvh;

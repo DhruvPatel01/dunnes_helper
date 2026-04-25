@@ -1,9 +1,9 @@
-import { getAllCatalogItems } from '../db/catalogDb.js'
-import { getAllHistory } from '../db/historyDb.js'
+import { dbPromise } from '../db/index.js'
 import { downloadFile } from './csv.js'
 
 export async function exportAppData() {
-  const [catalog, history] = await Promise.all([getAllCatalogItems(), getAllHistory()])
+  const db = await dbPromise
+  const [catalog, history] = await Promise.all([db.getAll('catalog'), db.getAll('history')])
   const data = {
     version: 1,
     exportedAt: new Date().toISOString(),

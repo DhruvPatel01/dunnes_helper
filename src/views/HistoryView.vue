@@ -1,6 +1,6 @@
 <template>
-  <div class="flex flex-col h-full">
-    <div class="flex-shrink-0 px-4 py-3 bg-white border-b border-gray-100 flex items-center justify-between">
+  <div class="view-root">
+    <div class="page-header flex items-center justify-between">
       <div>
         <h1 class="text-lg font-bold text-gray-900">History</h1>
         <p class="text-xs text-gray-400 mt-0.5">{{ sessions.length }} past session{{ sessions.length !== 1 ? 's' : '' }}</p>
@@ -11,7 +11,7 @@
       >+ Add session</button>
     </div>
 
-    <div class="flex-1 overflow-y-auto">
+    <div class="scroll-area">
       <div v-if="sessions.length === 0" class="flex flex-col items-center justify-center h-full px-8 text-center">
         <svg class="w-16 h-16 text-gray-200 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
@@ -78,7 +78,7 @@
           <div
             v-for="(item, idx) in session.items"
             :key="idx"
-            class="flex items-center px-4 py-3 border-b border-gray-50 last:border-0"
+            class="list-row last:border-0"
           >
             <div class="flex-1 min-w-0">
               <p class="text-sm font-medium text-gray-900 truncate">
@@ -119,7 +119,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { getAllHistory, deleteHistoryEntry, putHistoryEntry } from '../db/historyDb.js'
+import { dbPromise } from '../db/index.js'
 import ConfirmDialog from '../components/shared/ConfirmDialog.vue'
 import AddSessionModal from '../components/history/AddSessionModal.vue'
 
@@ -133,7 +133,7 @@ const editingDateId = ref(null)
 onMounted(loadSessions)
 
 async function loadSessions() {
-  const all = await getAllHistory()
+  const all = await (await dbPromise).getAll('history')
   sessions.value = [...all].reverse()
   if (sessions.value.length > 0 && expanded.value === null) {
     expanded.value = sessions.value[0].id
@@ -158,7 +158,7 @@ async function saveDate(session, dateStr) {
   if (!dateStr) return
   const newDate = new Date(dateStr).toISOString()
   const updated = { ...session, date: newDate }
-  await putHistoryEntry(updated)
+  await (await dbPromise).put('history', updated)
   const idx = sessions.value.findIndex(s => s.id === session.id)
   if (idx !== -1) sessions.value[idx] = updated
   editingDateId.value = null
@@ -171,7 +171,7 @@ function confirmDelete(session) {
 
 async function doDelete() {
   if (!pendingDelete.value) return
-  await deleteHistoryEntry(pendingDelete.value.id)
+  await (await dbPromise).delete('history', pendingDelete.value.id)
   sessions.value = sessions.value.filter(s => s.id !== pendingDelete.value.id)
   if (expanded.value === pendingDelete.value.id) expanded.value = null
   pendingDelete.value = null

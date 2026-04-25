@@ -1,9 +1,9 @@
 <template>
   <Teleport to="body">
-    <div v-if="modelValue && data" class="fixed inset-0 z-50 flex flex-col bg-white">
+    <div v-if="modelValue && data" class="modal-fullscreen">
 
       <!-- Header -->
-      <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100 flex-shrink-0">
+      <div class="page-header flex items-center justify-between">
         <div>
           <h2 class="text-lg font-bold text-gray-900">Import CSV</h2>
           <p class="text-xs text-gray-400 mt-0.5">{{ data.incoming.length }} item{{ data.incoming.length !== 1 ? 's' : '' }} in file</p>
@@ -16,7 +16,7 @@
         <p class="text-sm text-gray-600 text-center mb-2">How do you want to import these items?</p>
 
         <button
-          class="w-full py-4 rounded-xl bg-primary text-white font-bold text-base active:bg-primary-600"
+          class="btn-primary w-full py-4 font-bold text-base"
           @click="chooseAdd"
         >
           Add to catalog
@@ -43,7 +43,7 @@
           <p class="font-semibold text-gray-900">Replace {{ catalog.items.length }} existing item{{ catalog.items.length !== 1 ? 's' : '' }}?</p>
           <p class="text-sm text-gray-500 mt-1">This will delete all current products and import {{ data.incoming.length }} new ones. Purchase history is kept.</p>
         </div>
-        <button class="w-full py-3.5 rounded-xl bg-red-600 text-white font-bold active:bg-red-700" @click="doReplace">
+        <button class="btn-danger w-full py-3.5 font-bold" @click="doReplace">
           Yes, replace catalog
         </button>
         <button class="w-full py-3 text-gray-500 font-medium" @click="step = 1">Back</button>
@@ -58,21 +58,21 @@
             </svg>
           </div>
           <p class="font-semibold text-gray-900">No conflicts found</p>
-          <p class="text-sm text-gray-500 mt-1">{{ newItems.length }} new item{{ newItems.length !== 1 ? 's' : '' }} will be added to your catalog.</p>
+          <p class="text-sm text-gray-500 mt-1"> {{ newItemsString }} will be added to your catalog.</p>
         </div>
-        <button class="w-full py-3.5 rounded-xl bg-primary text-white font-bold active:bg-primary-600" @click="doAdd">
-          Add {{ newItems.length }} item{{ newItems.length !== 1 ? 's' : '' }}
+        <button class="btn-primary w-full py-3.5 font-bold" @click="doAdd">
+          Add {{ newItemsString }}
         </button>
         <button class="w-full py-3 text-gray-500 font-medium" @click="step = 1">Back</button>
       </div>
 
       <!-- Step 2: Add mode — with conflicts -->
       <template v-else-if="step === 2 && conflicts.length > 0">
-        <div class="flex-1 min-h-0 overflow-y-auto">
+        <div class="scroll-area">
           <!-- New items summary -->
           <div v-if="newItems.length > 0" class="px-4 py-3 bg-green-50 border-b border-green-100">
             <p class="text-sm font-medium text-green-700">
-              {{ newItems.length }} new item{{ newItems.length !== 1 ? 's' : '' }} will be added automatically
+              {{ newItemsString }} will be added automatically
             </p>
             <p class="text-xs text-green-600 mt-0.5">{{ newItems.map(i => i.name).join(', ') }}</p>
           </div>
@@ -124,9 +124,9 @@
         </div>
 
         <!-- Confirm bar -->
-        <div class="flex-shrink-0 px-4 py-3 border-t border-gray-200 bg-white">
+        <div class="modal-footer border-gray-200">
           <button
-            class="w-full py-3.5 rounded-xl bg-primary text-white font-bold text-base active:bg-primary-600"
+            class="btn-primary w-full py-3.5 font-bold text-base"
             @click="doAdd"
           >Confirm Import</button>
         </div>
@@ -176,6 +176,9 @@ const newItems = computed(() => {
   return props.data.incoming.filter(inc => !existingNames.has(inc.name.toLowerCase()))
 })
 
+const newItemsString = computed(() => {
+  return newItems.value.length + ' new item' + (newItems.value.length !== 1 ? 's' : '')})
+
 watch(() => props.modelValue, (val) => {
   if (val) {
     step.value = 1
@@ -214,7 +217,7 @@ async function doAdd() {
 
   // Add all non-conflicting new items
   for (const item of newItems.value) {
-    await catalog.addProduct(item.name, item.price)
+    await catalog.addProduct(item.name, item.category, item.price)
     added++
   }
 
@@ -227,11 +230,11 @@ async function doAdd() {
       await catalog.updateProduct(c.existing.id, { price: c.incoming.price })
       merged++
     } else if (res.action === 'add') {
-      await catalog.addProduct(c.incoming.name, c.incoming.price)
+      await catalog.addProduct(c.incoming.name, c.incoming.category, c.incoming.price)
       added++
     } else if (res.action === 'rename') {
       const name = res.name?.trim() || c.incoming.name
-      await catalog.addProduct(name, c.incoming.price)
+      await catalog.addProduct(name, c.incoming.category, c.incoming.price)
       added++
     }
   }

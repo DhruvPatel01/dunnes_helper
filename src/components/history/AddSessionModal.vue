@@ -1,20 +1,20 @@
 <template>
   <Teleport to="body">
-    <div v-if="modelValue" class="fixed inset-0 z-50 flex flex-col bg-white">
+    <div v-if="modelValue" class="modal-fullscreen">
       <!-- Header -->
-      <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+      <div class="page-header flex items-center justify-between">
         <h2 class="text-lg font-bold text-gray-900">Add Past Session</h2>
         <button class="p-2 text-gray-400 active:text-gray-600" @click="close">✕</button>
       </div>
 
-      <div class="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+      <div class="scroll-area px-4 py-4 space-y-4">
         <!-- Date -->
         <div>
           <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Date</label>
           <input
             v-model="date"
             type="date"
-            class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-primary"
+            class="input mt-1 w-full py-2.5"
           />
         </div>
 
@@ -27,7 +27,7 @@
             min="0"
             step="0.01"
             placeholder="25.00"
-            class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-primary"
+            class="input mt-1 w-full py-2.5"
           />
         </div>
 
@@ -39,7 +39,7 @@
               v-model="searchQuery"
               type="search"
               placeholder="Search catalog to add items..."
-              class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-primary"
+              class="input w-full py-2.5"
             />
             <div v-if="searchQuery && searchResults.length > 0" class="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-40 overflow-y-auto z-10">
               <button
@@ -83,7 +83,7 @@
       </div>
 
       <!-- Save button -->
-      <div class="flex-shrink-0 px-4 py-3 border-t border-gray-100 bg-white">
+      <div class="modal-footer">
         <p v-if="error" class="text-xs text-red-500 mb-2 text-center">{{ error }}</p>
         <button
           class="w-full py-3.5 rounded-xl font-bold text-base transition-colors"
@@ -101,7 +101,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useCatalogStore } from '../../stores/catalogStore.js'
-import { addHistoryEntry } from '../../db/historyDb.js'
+import { dbPromise } from '../../db/index.js'
 
 const props = defineProps({ modelValue: Boolean })
 const emit = defineEmits(['update:modelValue', 'saved'])
@@ -165,7 +165,7 @@ async function save() {
     totalSpent: total.value
   }
 
-  await addHistoryEntry(entry)
+  await (await dbPromise).add('history', entry)
 
   for (const item of sessionItems.value) {
     for (let i = 0; i < item.quantity; i++) {

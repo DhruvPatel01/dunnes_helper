@@ -1,9 +1,8 @@
 <template>
   <div class="flex flex-col h-dvh bg-primary-50">
     <div class="flex-1 min-h-0">
-      <ShoppingView v-if="session.currentView === 'shopping'" />
-      <ActiveShoppingView v-else-if="session.currentView === 'active-list'" />
-      <CatalogView v-else-if="session.currentView === 'catalog'" />
+      <ListView v-if="currentView === 'lists'" />
+      <CatalogView v-else-if="currentView === 'catalog'" />
       <HistoryView v-else />
     </div>
     <BottomNav />
@@ -11,24 +10,26 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted } from 'vue'
-import { useSessionStore } from './stores/sessionStore.js'
+import { ref, watch, provide, onMounted, onUnmounted } from 'vue'
 import { useCatalogStore } from './stores/catalogStore.js'
-import { useActiveSessionStore } from './stores/activeSessionStore.js'
+import { useListsStore } from './stores/listsStore.js'
 import BottomNav from './components/shared/BottomNav.vue'
-import ShoppingView from './views/ShoppingView.vue'
-import ActiveShoppingView from './views/ActiveShoppingView.vue'
+import ListView from './views/ListView.vue'
 import CatalogView from './views/CatalogView.vue'
 import HistoryView from './views/HistoryView.vue'
 
-const session = useSessionStore()
+const _stored = JSON.parse(localStorage.getItem('dunnes-session') || '{}')
+const currentView = ref(_stored.currentView ?? 'lists')
+watch(currentView, val => localStorage.setItem('dunnes-session', JSON.stringify({ currentView: val })))
+provide('currentView', currentView)
+
 const catalog = useCatalogStore()
-const activeSession = useActiveSessionStore()
+const lists = useListsStore()
 
 function syncFromHash() {
   const hash = window.location.hash.replace('#', '')
-  if (['shopping', 'active-list', 'catalog', 'history'].includes(hash)) {
-    session.setView(hash)
+  if (['lists', 'catalog', 'history'].includes(hash)) {
+    currentView.value = hash
   }
 }
 
@@ -36,7 +37,7 @@ onMounted(async () => {
   syncFromHash()
   window.addEventListener('hashchange', syncFromHash)
   await catalog.loadFromDb()
-  await activeSession.init()
+  await lists.init()
 })
 
 onUnmounted(() => {

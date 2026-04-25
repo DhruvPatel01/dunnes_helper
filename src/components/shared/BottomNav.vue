@@ -5,7 +5,7 @@
         v-for="tab in tabs"
         :key="tab.id"
         class="flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors"
-        :class="session.currentView === tab.id ? 'text-primary' : 'text-gray-400'"
+        :class="currentView === tab.id ? 'text-primary' : 'text-gray-400'"
         @click="navigate(tab.id)"
       >
         <component :is="tab.icon" class="w-6 h-6" />
@@ -16,15 +16,14 @@
 </template>
 
 <script setup>
-import { h } from 'vue'
-import { useSessionStore } from '../../stores/sessionStore.js'
+import { h, inject } from 'vue'
 
-const session = useSessionStore()
+const currentView = inject('currentView')
 
-const CartIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
-  h('circle', { cx: '9', cy: '21', r: '1' }),
-  h('circle', { cx: '20', cy: '21', r: '1' }),
-  h('path', { d: 'M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6' })
+const ListsIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
+  h('rect', { x: '3', y: '5', width: '18', height: '4', rx: '1' }),
+  h('rect', { x: '3', y: '11', width: '18', height: '4', rx: '1' }),
+  h('rect', { x: '3', y: '17', width: '18', height: '2', rx: '1' })
 ])
 
 const ListIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
@@ -41,20 +40,14 @@ const ClockIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: '
   h('polyline', { points: '12 6 12 12 16 14' })
 ])
 
-const ChecklistIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
-  h('rect', { x: '3', y: '5', width: '18', height: '14', rx: '2' }),
-  h('polyline', { points: '7 12 10 15 17 9' })
-])
-
 const tabs = [
-  { id: 'shopping', label: 'Shop', icon: CartIcon },
-  { id: 'active-list', label: 'List', icon: ChecklistIcon },
+  { id: 'lists', label: 'Lists', icon: ListsIcon },
   { id: 'catalog', label: 'Catalog', icon: ListIcon },
   { id: 'history', label: 'History', icon: ClockIcon }
 ]
 
 function navigate(view) {
-  session.setView(view)
+  currentView.value = view
   window.location.hash = view
 }
 </script>

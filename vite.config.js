@@ -3,6 +3,7 @@ import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  base: '/dunnes_helper/',
   plugins: [
     vue(),
     VitePWA({
@@ -16,7 +17,7 @@ export default defineConfig({
         background_color: '#f0f7f3',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/',
+        start_url: '/dunnes_helper/',
         icons: [
           {
             src: 'icons/icon.svg',

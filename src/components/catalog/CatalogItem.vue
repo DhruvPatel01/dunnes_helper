@@ -1,5 +1,5 @@
 <template>
-  <div class="flex items-center px-4 py-3 bg-white border-b border-gray-50">
+  <div class="list-row bg-white hover:bg-gray-50 cursor-pointer transition-colors duration-150">
     <div class="flex-1 min-w-0">
       <input
         v-if="editing"
@@ -7,23 +7,35 @@
         v-model="editName"
         type="text"
         class="w-full font-medium text-gray-900 border-b border-primary outline-none bg-transparent"
-        @keydown.enter="focusPrice"
+        @keydown.enter="focusCategory"
         @keydown.escape="cancelEdit"
       />
-      <p v-else class="font-medium text-gray-900 truncate">{{ product.name }}</p>
+      <p v-else class="font-medium text-gray-900 truncate" @click="startEdit('name')">{{ product.name }}</p>
       <p class="text-xs text-gray-400 mt-0.5">
         {{ product.purchaseCount }} purchase{{ product.purchaseCount !== 1 ? 's' : '' }}
       </p>
+    </div>
+    <div class="flex-1 min-w-0">
+      <input
+        v-if="editing"
+        ref="categoryInput"
+        v-model="editCategory"
+        type="text"
+        class="w-full font-medium text-gray-900 border-b border-primary outline-none bg-transparent"
+        @keydown.enter="focusPrice"
+        @keydown.escape="cancelEdit"
+      />
+      <p v-else class="font-medium text-gray-900 truncate" @click="startEdit('category')">{{ product.category }}</p>
+      <p class="text-xs mt-0.5 invisible">&nbsp;</p> <!-- matches "0 purchases" height -->
     </div>
     <div class="flex items-center gap-2 ml-3">
       <div v-if="!editing" class="flex items-center gap-2">
         <span
           class="text-sm font-semibold text-gray-700 cursor-pointer"
-          @click="startEdit"
         >€{{ product.price.toFixed(2) }}</span>
         <button
           class="text-primary text-sm font-medium px-2 py-1 rounded-lg active:bg-primary-50"
-          @click="startEdit"
+          @click="startEdit('price')"
         >Edit</button>
       </div>
       <div v-else class="flex items-center gap-2">
@@ -64,26 +76,40 @@ defineEmits(['delete'])
 const catalog = useCatalogStore()
 const editing = ref(false)
 const editName = ref('')
+const editCategory = ref('')
 const editPrice = ref('')
 const nameInput = ref(null)
+const categoryInput = ref(null)
 const priceInput = ref(null)
 
-function startEdit() {
+function startEdit(area) {
   editName.value = props.product.name
   editPrice.value = props.product.price.toFixed(2)
+  editCategory.value = props.product.category
   editing.value = true
-  nextTick(() => nameInput.value?.select())
+  if (area === "name")
+    nextTick(() => nameInput.value?.select())
+  else if (area === "category")
+    nextTick(() => categoryInput.value?.select())
+  else
+    nextTick(() => priceInput.value?.select())    
 }
 
 function focusPrice() {
   priceInput.value?.select()
 }
 
+function focusCategory() {
+  categoryInput.value?.select()
+}
+
 async function save() {
   const name = editName.value.trim()
   const price = parseFloat(editPrice.value)
+  const category = editCategory.value.trim()
   const updates = {}
   if (name && name !== props.product.name) updates.name = name
+  if (category && category !== props.product.category) updates.category = category
   if (price > 0 && price !== props.product.price) updates.price = price
   if (Object.keys(updates).length) await catalog.updateProduct(props.product.id, updates)
   editing.value = false
@@ -91,5 +117,6 @@ async function save() {
 
 function cancelEdit() {
   editing.value = false
+  console.log("Cancelling")
 }
 </script>

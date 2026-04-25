@@ -3,14 +3,14 @@
     <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Data</p>
 
     <div class="grid grid-cols-2 gap-2">
-      <button class="btn-secondary" @click="exportCsv">Export CSV</button>
-      <label class="btn-secondary text-center cursor-pointer">
-        Import CSV
+      <button class="btn-secondary py-2.5 px-3 text-sm bg-white active:bg-gray-50 transition-colors" @click="exportCsv">Export Catalog (CSV)</button>
+      <label class="btn-secondary py-2.5 px-3 text-sm bg-white active:bg-gray-50 transition-colors text-center cursor-pointer">
+        Import Catalog (CSV)
         <input type="file" accept=".csv" class="hidden" @change="handleCsvImport" />
       </label>
-      <button class="btn-secondary" @click="exportJson">Export JSON</button>
-      <label class="btn-secondary text-center cursor-pointer">
-        Import JSON
+      <button class="btn-secondary py-2.5 px-3 text-sm bg-white active:bg-gray-50 transition-colors" @click="exportJson">Export All Data (JSON)</button>
+      <label class="btn-secondary py-2.5 px-3 text-sm bg-white active:bg-gray-50 transition-colors text-center cursor-pointer">
+        Import All Data (JSON)
         <input type="file" accept=".json" class="hidden" @change="handleJsonImport" />
       </label>
     </div>
@@ -76,6 +76,7 @@ function handleCsvImport(e) {
       csvImportData.value = {
         incoming: rows.map(r => ({
           name: r.name,
+          category: r.category,
           price: parseFloat(r.price),
           purchaseCount: 0,
           lastUpdated: new Date().toISOString(),
@@ -117,9 +118,3 @@ async function doJsonImport() {
   pendingJson.value = null
 }
 </script>
-
-<style scoped>
-.btn-secondary {
-  @apply py-2.5 px-3 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 bg-white active:bg-gray-50 transition-colors;
-}
-</style>
