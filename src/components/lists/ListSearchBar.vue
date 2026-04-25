@@ -24,15 +24,29 @@
     <!-- Recommendations (shown when focused, no query, list has target) -->
     <div v-if="focused && !query && recommendations.length > 0" class="dropdown">
       <p class="px-3 pt-2 pb-1 text-xs text-gray-400 font-medium">Suggested</p>
-      <button
+      <div
         v-for="product in recommendations"
         :key="product.id"
-        class="dropdown-row active:bg-gray-50"
-        @mousedown.prevent="addItem(product)"
+        class="dropdown-row"
       >
         <span class="item-name">{{ product.name }}</span>
-        <span class="item-price">€{{ product.price.toFixed(2) }}</span>
-      </button>
+        <div class="flex items-center gap-1 flex-shrink-0">
+          <span class="item-price mr-1">€{{ product.price.toFixed(2) }}</span>
+          <button
+            v-if="itemQty(product.id) > 0"
+            class="qty-btn"
+            @mousedown.prevent="decItem(product)"
+          >-</button>
+          <span
+            v-if="itemQty(product.id) > 0"
+            class="w-5 text-center text-sm font-medium text-gray-700"
+          >{{ itemQty(product.id) }}</span>
+          <button
+            class="qty-btn"
+            @mousedown.prevent="addItem(product)"
+          >+</button>
+        </div>
+      </div>
     </div>
 
     <!-- Results dropdown -->
@@ -123,13 +137,22 @@ const recommendations = computed(() => {
   const list = listsStore.lists.find(l => l.id === props.listId)
   if (!list || list.target == null) return []
   const gap = listsStore.listGap(props.listId) ?? Infinity
-  const threshold = gap + 2
+  const threshold = gap + 5
   const inList = new Set(list.items.map(i => i.productId))
   return catalog.items
-    .filter(p => !inList.has(p.id) && p.price <= threshold)
+    .filter(p => inList.has(p.id) || p.price <= threshold)
     .sort((a, b) => (b.purchaseCount || 0) - (a.purchaseCount || 0))
-    .slice(0, 6)
 })
+
+function itemQty(productId) {
+  const list = listsStore.lists.find(l => l.id === props.listId)
+  return list?.items.find(i => i.productId === productId)?.quantity ?? 0
+}
+
+function decItem(product) {
+  const qty = itemQty(product.id)
+  if (qty > 0) listsStore.updateItemQuantity(props.listId, product.id, qty - 1)
+}
 
 const results = computed(() => {
   const q = query.value.toLowerCase().trim()
@@ -186,9 +209,10 @@ function onKeydown(e) {
 </script>
 
 <style scoped>
-.dropdown      { @apply mt-1 bg-white rounded-xl border border-gray-200 shadow-lg max-h-52 overflow-y-auto; }
+.dropdown      { @apply mt-1 bg-white rounded-xl border border-gray-200 shadow-lg max-h-[50vh] overflow-y-auto; }
 .dropdown-row  { @apply w-full flex items-center justify-between px-3 py-2.5 border-b border-gray-50 last:border-0; }
 .item-name     { @apply text-sm font-medium text-gray-800 truncate; }
 .item-price    { @apply text-sm font-bold text-primary ml-2 flex-shrink-0; }
 .action-btn    { @apply flex-1 py-2 text-sm rounded-xl; }
+.qty-btn       { @apply w-6 h-6 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 text-sm active:bg-gray-100; }
 </style>

@@ -1,23 +1,37 @@
 <template>
-  <div class="px-4 py-4 bg-white border-t border-gray-100 space-y-3">
-    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Data</p>
+  <div class="px-4 bg-white border-t border-gray-100">
+    <button
+      class="flex items-center justify-between w-full py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide"
+      @click="collapsed = !collapsed"
+    >
+      <span>Import / Export</span>
+      <svg
+        class="w-3.5 h-3.5 transition-transform"
+        :class="collapsed ? 'rotate-180' : ''"
+        fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"
+      >
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+      </svg>
+    </button>
 
-    <div class="grid grid-cols-2 gap-2">
-      <button class="btn-secondary py-2.5 px-3 text-sm bg-white active:bg-gray-50 transition-colors" @click="exportCsv">Export Catalog (CSV)</button>
-      <label class="btn-secondary py-2.5 px-3 text-sm bg-white active:bg-gray-50 transition-colors text-center cursor-pointer">
-        Import Catalog (CSV)
-        <input type="file" accept=".csv" class="hidden" @change="handleCsvImport" />
-      </label>
-      <button class="btn-secondary py-2.5 px-3 text-sm bg-white active:bg-gray-50 transition-colors" @click="exportJson">Export All Data (JSON)</button>
-      <label class="btn-secondary py-2.5 px-3 text-sm bg-white active:bg-gray-50 transition-colors text-center cursor-pointer">
-        Import All Data (JSON)
-        <input type="file" accept=".json" class="hidden" @change="handleJsonImport" />
-      </label>
+    <div v-if="!collapsed" class="pb-4 space-y-3">
+      <div class="grid grid-cols-2 gap-2">
+        <button class="btn-secondary py-2.5 px-3 text-sm bg-white active:bg-gray-50 transition-colors" @click="exportCsv">Export Catalog (CSV)</button>
+        <label class="btn-secondary py-2.5 px-3 text-sm bg-white active:bg-gray-50 transition-colors text-center cursor-pointer">
+          Import Catalog (CSV)
+          <input type="file" accept=".csv" class="hidden" @change="handleCsvImport" />
+        </label>
+        <button class="btn-secondary py-2.5 px-3 text-sm bg-white active:bg-gray-50 transition-colors" @click="exportJson">Export All Data (JSON)</button>
+        <label class="btn-secondary py-2.5 px-3 text-sm bg-white active:bg-gray-50 transition-colors text-center cursor-pointer">
+          Import All Data (JSON)
+          <input type="file" accept=".json" class="hidden" @change="handleJsonImport" />
+        </label>
+      </div>
+
+      <p v-if="message" class="text-xs mt-1" :class="messageIsError ? 'text-red-500' : 'text-primary'">
+        {{ message }}
+      </p>
     </div>
-
-    <p v-if="message" class="text-xs mt-1" :class="messageIsError ? 'text-red-500' : 'text-primary'">
-      {{ message }}
-    </p>
 
     <CsvImportModal v-model="showCsvModal" :data="csvImportData" @done="msg => showMsg(msg)" />
 
@@ -44,6 +58,7 @@ import CsvImportModal from './CsvImportModal.vue'
 const catalog = useCatalogStore()
 const lists = useListsStore()
 
+const collapsed = ref(false)
 const message = ref('')
 const messageIsError = ref(false)
 const showCsvModal = ref(false)

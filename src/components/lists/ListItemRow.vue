@@ -16,7 +16,7 @@
         </svg>
       </button>
 
-      <!-- Name + discount badge -->
+      <!-- Name + price badge -->
       <div class="flex-1 min-w-0">
         <span
           class="text-sm font-medium text-gray-800 leading-tight"
@@ -52,11 +52,11 @@
 
     <!-- Secondary actions row -->
     <div class="flex items-center gap-3 mt-2 ml-7">
-      <!-- Discount toggle -->
+      <!-- Update price toggle -->
       <button
         class="text-xs text-gray-400 underline"
-        @click="discountOpen = !discountOpen"
-      >{{ discountOpen ? 'cancel' : 'discount' }}</button>
+        @click="priceOpen = !priceOpen"
+      >{{ priceOpen ? 'cancel' : 'update price' }}</button>
 
       <!-- Unavailable toggle -->
       <button
@@ -72,26 +72,30 @@
       <button class="text-xs text-red-400" @click="store.removeItemFromList(listId, item.productId)">✕</button>
     </div>
 
-    <!-- Inline discount input -->
-    <div v-if="discountOpen" class="ml-7 mt-2 flex items-center gap-2">
-      <span class="text-xs text-gray-500">Discount €</span>
+    <!-- Inline price input -->
+    <div v-if="priceOpen" class="ml-7 mt-2 flex items-center gap-2 flex-wrap">
+      <span class="text-xs text-gray-500">New price €</span>
       <input
-        v-model.number="discountAmount"
+        v-model.number="newPrice"
         type="number"
         min="0"
         step="0.01"
-        :placeholder="(item.catalogPrice - item.sessionPrice).toFixed(2)"
+        :placeholder="item.sessionPrice.toFixed(2)"
         class="w-24 px-2 py-1 text-xs border border-gray-200 rounded-lg outline-none focus:border-primary"
       />
       <button
         class="text-xs bg-primary text-white px-2 py-1 rounded-lg"
-        @click="applyDiscount"
+        @click="applyNewPrice"
       >Apply</button>
       <button
         v-if="item.sessionPrice < item.catalogPrice"
         class="text-xs text-gray-400 underline"
-        @click="store.resetItemDiscount(listId, item.productId); discountOpen = false"
+        @click="store.resetItemPrice(listId, item.productId); priceOpen = false"
       >Reset</button>
+      <label class="flex items-center gap-1 text-xs text-gray-500 cursor-pointer">
+        <input type="checkbox" v-model="permanent" class="accent-primary" />
+        Make permanent
+      </label>
     </div>
 
     <MoveItemPopup
@@ -105,21 +109,26 @@
 <script setup>
 import { ref } from 'vue'
 import { useListsStore } from '../../stores/listsStore.js'
+import { useCatalogStore } from '../../stores/catalogStore.js'
 import MoveItemPopup from './MoveItemPopup.vue'
 
 const props = defineProps({ item: Object, listId: String })
 const store = useListsStore()
+const catalog = useCatalogStore()
 
-const discountOpen = ref(false)
+const priceOpen = ref(false)
 const moveOpen = ref(false)
-const discountAmount = ref('')
+const newPrice = ref('')
+const permanent = ref(false)
 
-function applyDiscount() {
-  const amt = parseFloat(discountAmount.value)
+function applyNewPrice() {
+  const amt = parseFloat(newPrice.value)
   if (!isNaN(amt) && amt >= 0) {
-    store.applyItemDiscount(props.listId, props.item.productId, amt)
+    store.updateItemPrice(props.listId, props.item.productId, amt, permanent.value)
+    if (permanent.value) catalog.updateProduct(props.item.productId, { price: amt })
   }
-  discountOpen.value = false
-  discountAmount.value = ''
+  priceOpen.value = false
+  permanent.value = false
+  newPrice.value = ''
 }
 </script>

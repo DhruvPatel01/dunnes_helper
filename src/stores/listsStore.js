@@ -126,16 +126,17 @@ export const useListsStore = defineStore('lists', () => {
     await putListDb(list)
   }
 
-  async function applyItemDiscount(listId, productId, discountAmount) {
+  async function updateItemPrice(listId, productId, newPrice, permanent = false) {
     const list = lists.value.find(l => l.id === listId)
     if (!list) return
     const item = list.items.find(i => i.productId === productId)
     if (!item) return
-    item.sessionPrice = Math.max(0, item.catalogPrice - discountAmount)
+    item.sessionPrice = Math.max(0, newPrice)
+    if (permanent) item.catalogPrice = Math.max(0, newPrice)
     await putListDb(list)
   }
 
-  async function resetItemDiscount(listId, productId) {
+  async function resetItemPrice(listId, productId) {
     const list = lists.value.find(l => l.id === listId)
     if (!list) return
     const item = list.items.find(i => i.productId === productId)
@@ -239,8 +240,8 @@ export const useListsStore = defineStore('lists', () => {
     addItemToList,
     removeItemFromList,
     updateItemQuantity,
-    applyItemDiscount,
-    resetItemDiscount,
+    updateItemPrice,
+    resetItemPrice,
     toggleChecked,
     toggleUnavailable,
     moveItem,
