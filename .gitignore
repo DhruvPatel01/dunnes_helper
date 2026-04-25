@@ -1,4 +1,5 @@
 node_modules/
+dunnes-helper-backup.json
 dist/
 .env
 .env.local

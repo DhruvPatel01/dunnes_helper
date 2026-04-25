@@ -35,12 +35,14 @@
 <script setup>
 import { ref } from 'vue'
 import { useCatalogStore } from '../../stores/catalogStore.js'
+import { useListsStore } from '../../stores/listsStore.js'
 import { parseCsv, generateCsv, downloadFile } from '../../utils/csv.js'
-import { exportAppData, parseAppDataJson } from '../../utils/dataExport.js'
+import { exportAppData, parseAppDataJson, importAppData } from '../../utils/dataExport.js'
 import ConfirmDialog from '../shared/ConfirmDialog.vue'
 import CsvImportModal from './CsvImportModal.vue'
 
 const catalog = useCatalogStore()
+const lists = useListsStore()
 
 const message = ref('')
 const messageIsError = ref(false)
@@ -110,8 +112,10 @@ function handleJsonImport(e) {
 async function doJsonImport() {
   if (!pendingJson.value) return
   try {
-    await catalog.replaceAll(pendingJson.value.catalog)
-    showMsg(`Restored ${pendingJson.value.catalog.length} products.`)
+    await importAppData(pendingJson.value)
+    await Promise.all([catalog.loadFromDb(), lists.init()])
+    const { catalog: c, history: h, lists: l } = pendingJson.value
+    showMsg(`Restored ${c.length} products, ${(h || []).length} history entries, ${(l || []).length} lists.`)
   } catch {
     showMsg('Restore failed.', true)
   }
