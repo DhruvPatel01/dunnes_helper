@@ -33,7 +33,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, toRaw } from 'vue'
 import { useCatalogStore } from '../../stores/catalogStore.js'
 import { useListsStore } from '../../stores/listsStore.js'
 import { parseCsv, generateCsv, downloadFile } from '../../utils/csv.js'
@@ -112,11 +112,12 @@ function handleJsonImport(e) {
 async function doJsonImport() {
   if (!pendingJson.value) return
   try {
-    await importAppData(pendingJson.value)
+    await importAppData(toRaw(pendingJson.value))
     await Promise.all([catalog.loadFromDb(), lists.init()])
     const { catalog: c, history: h, lists: l } = pendingJson.value
     showMsg(`Restored ${c.length} products, ${(h || []).length} history entries, ${(l || []).length} lists.`)
-  } catch {
+  } catch (err) {
+    console.error('Restore failed:', err)
     showMsg('Restore failed.', true)
   }
   pendingJson.value = null

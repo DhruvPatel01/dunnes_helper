@@ -23,20 +23,17 @@ export function parseAppDataJson(text) {
 }
 
 export async function importAppData(data) {
-  const db = await dbPromise
-  const tx = db.transaction(['catalog', 'history', 'lists'], 'readwrite')
-  await Promise.all([
-    tx.objectStore('catalog').clear(),
-    tx.objectStore('history').clear(),
-    tx.objectStore('lists').clear(),
-  ])
-  const stores = ['catalog', 'history', 'lists']
+  const db = await dbPromise;
+  const tx = db.transaction(['catalog', 'history', 'lists'], 'readwrite');
+  const stores = ['catalog', 'history', 'lists'];
+
   for (const store of stores) {
-    if (!Array.isArray(data[store])) continue
+    if (!Array.isArray(data[store])) continue; // skip if no data
+    await tx.objectStore(store).clear();        // only clear if we have replacement data
     for (const item of data[store]) {
-      const { id: _id, ...rest } = item
-      tx.objectStore(store).add(rest)
+      tx.objectStore(store).put(item);
     }
   }
-  await tx.done
+
+  await tx.done;
 }
