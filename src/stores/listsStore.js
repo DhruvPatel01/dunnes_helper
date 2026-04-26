@@ -203,15 +203,32 @@ export const useListsStore = defineStore('lists', () => {
       .reduce((sum, i) => sum + (i.catalogPrice - i.sessionPrice) * i.quantity, 0)
   }
 
-  async function completeList(listId) {
+  async function unarchive(archivedList) {
+    await createList(archivedList.name, archivedList.target || null, archivedList.discount)
+    const list = lists.value[lists.value.length - 1]
+    list.items = archivedList.items.map(i => ({
+      productId: i.productId ?? crypto.randomUUID(),
+      name: i.name,
+      catalogPrice: i.price,
+      sessionPrice: i.price,
+      quantity: i.quantity,
+      checked: false,
+      unavailable: false
+    }))
+    await putListDb(list)
+  }
+
+  async function archiveList(listId) {
     const list = lists.value.find(l => l.id === listId)
-    if (!list) { console.error('completeList: list not found', listId); return }
+    if (!list) { console.error('archiveList: list not found', listId); return }
     const entry = {
       date: new Date().toISOString(),
+      name: list.name,
       target: list.target ?? 0,
+      discount: list.discount,
       items: list.items
         .filter(i => !i.unavailable)
-        .map(i => ({ name: i.name, price: i.sessionPrice, quantity: i.quantity })),
+        .map(i => ({ productId: i.productId, name: i.name, price: i.sessionPrice, quantity: i.quantity })),
       unavailableItems: list.items
         .filter(i => i.unavailable)
         .map(i => ({ name: i.name })),
@@ -220,7 +237,7 @@ export const useListsStore = defineStore('lists', () => {
     try {
       await (await dbPromise).add('history', entry)
     } catch (e) {
-      console.error('completeList: addHistoryEntry failed', e)
+      console.error('archiveList: addHistoryEntry failed', e)
       return
     }
     await deleteList(listId)
@@ -232,7 +249,8 @@ export const useListsStore = defineStore('lists', () => {
     init,
     createList,
     deleteList,
-    completeList,
+    archiveList,
+    unarchive,
     updateListTarget,
     updateListName,
     toggleExpand,

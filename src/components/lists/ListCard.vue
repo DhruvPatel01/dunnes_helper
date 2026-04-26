@@ -71,12 +71,12 @@
             class="text-xs text-gray-400 underline"
             @click.stop="editOpen = !editOpen"
           >{{ editOpen ? 'cancel' : 'edit target' }}</button>
-          <!-- Complete -->
+          <!-- Archive -->
           <button
             v-if="!list.isInbox"
             class="text-xs text-primary underline"
-            @click.stop="confirmComplete = true"
-          >Complete</button>
+            @click.stop="confirmArchive = true"
+          >Archive</button>
         </div>
         <!-- Delete -->
         <button
@@ -129,11 +129,11 @@
     />
 
     <ConfirmDialog
-      v-model="confirmComplete"
-      title="Complete list?"
+      v-model="confirmArchive"
+      title="Archive list?"
       :message="`Save &quot;${list.name}&quot; to history and remove it?`"
-      confirm-label="Complete"
-      @confirm="store.completeList(list.id)"
+      confirm-label="Archive"
+      @confirm="store.archiveList(list.id)"
     />
   </div>
 </template>
@@ -157,7 +157,7 @@ const progressPct = computed(() => {
 })
 
 const confirmDelete = ref(false)
-const confirmComplete = ref(false)
+const confirmArchive = ref(false)
 const editOpen = ref(false)
 const editTarget = ref(props.list.target ?? '')
 const editDiscount = ref(props.list.discount ?? 0)

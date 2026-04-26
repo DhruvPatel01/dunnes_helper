@@ -21,13 +21,15 @@
       >✕</button>
     </div>
 
-    <!-- Recommendations (shown when focused, no query, list has target) -->
-    <div v-if="focused && !query && recommendations.length > 0" class="dropdown">
-      <p class="px-3 pt-2 pb-1 text-xs text-gray-400 font-medium">Suggested</p>
+    <!-- Unified dropdown: full catalog at rest, narrows as user types -->
+    <div v-if="focused && displayItems.length > 0 && !createOpen" class="dropdown">
       <div
-        v-for="product in recommendations"
+        v-for="(product, idx) in displayItems"
         :key="product.id"
-        class="dropdown-row"
+        class="dropdown-row transition-colors"
+        :class="idx === activeIdx ? 'bg-primary-50' : ''"
+        @mouseenter="activeIdx = idx"
+        @mouseleave="activeIdx = -1"
       >
         <span class="item-name">{{ product.name }}</span>
         <div class="flex items-center gap-1 flex-shrink-0">
@@ -49,24 +51,8 @@
       </div>
     </div>
 
-    <!-- Results dropdown -->
-    <div v-if="query && results.length > 0 && !createOpen" class="dropdown">
-      <button
-        v-for="(product, idx) in results"
-        :key="product.id"
-        class="dropdown-row transition-colors"
-        :class="idx === activeIdx ? 'bg-primary-50' : 'active:bg-gray-50'"
-        @mouseenter="activeIdx = idx"
-        @mouseleave="activeIdx = -1"
-        @click="addItem(product)"
-      >
-        <span class="item-name">{{ product.name }}</span>
-        <span class="item-price">€{{ product.price.toFixed(2) }}</span>
-      </button>
-    </div>
-
     <!-- No results → create inline -->
-    <div v-if="query && results.length === 0 && !createOpen" class="mt-2">
+    <div v-if="query && displayItems.length === 0 && !createOpen" class="mt-2">
       <p class="text-xs text-gray-400 text-center mb-2">No matching items in catalog</p>
       <button
         class="w-full py-2 text-xs font-medium text-primary border border-primary/30 rounded-xl bg-primary/5 active:bg-primary/10"
@@ -133,15 +119,22 @@ const categories = computed(() =>
   [...new Set(catalog.items.map(i => i.category).filter(Boolean))].sort()
 )
 
-const recommendations = computed(() => {
-  const list = listsStore.lists.find(l => l.id === props.listId)
-  if (!list || list.target == null) return []
-  const gap = listsStore.listGap(props.listId) ?? Infinity
-  const threshold = gap + 5
-  const inList = new Set(list.items.map(i => i.productId))
-  return catalog.items
-    .filter(p => inList.has(p.id) || p.price <= threshold)
-    .sort((a, b) => (b.purchaseCount || 0) - (a.purchaseCount || 0))
+// Extend this function to add custom recommendation/ranking logic.
+// Higher score = shown first. Receives the current listId and query string for context.
+function scoreItem(product, listId, query) {
+  return (product.purchaseCount || 0)
+}
+
+const displayItems = computed(() => {
+  const q = query.value.toLowerCase().trim()
+  const items = q
+    ? catalog.items.filter(p => p.name.toLowerCase().includes(q))
+    : [...catalog.items]
+  return items
+    .sort((a, b) =>
+      scoreItem(b, props.listId, q) - scoreItem(a, props.listId, q) ||
+      a.name.localeCompare(b.name)
+    )
 })
 
 function itemQty(productId) {
@@ -154,20 +147,11 @@ function decItem(product) {
   if (qty > 0) listsStore.updateItemQuantity(props.listId, product.id, qty - 1)
 }
 
-const results = computed(() => {
-  const q = query.value.toLowerCase().trim()
-  if (!q) return []
-  return catalog.items
-    .filter(p => p.name.toLowerCase().includes(q))
-    .sort((a, b) => (b.purchaseCount || 0) - (a.purchaseCount || 0) || a.name.localeCompare(b.name))
-    .slice(0, 8)
-})
+watch(displayItems, () => { activeIdx.value = -1 })
 
-watch(results, () => { activeIdx.value = -1 })
-
-function addItem(product) {
+function addItem(product, clearQuery = false) {
   listsStore.addItemToList(props.listId, product)
-  query.value = ''
+  if (clearQuery) query.value = ''
   activeIdx.value = -1
 }
 
@@ -193,7 +177,7 @@ async function submitCreate() {
 }
 
 function onKeydown(e) {
-  const items = results.value
+  const items = displayItems.value
   if (!items.length || createOpen.value) return
   if (e.key === 'ArrowDown') {
     e.preventDefault()
@@ -202,8 +186,8 @@ function onKeydown(e) {
     e.preventDefault()
     activeIdx.value = Math.max(activeIdx.value - 1, -1)
   } else if (e.key === 'Enter') {
-    if (items.length === 1) addItem(items[0])
-    else if (activeIdx.value >= 0) addItem(items[activeIdx.value])
+    if (items.length === 1) addItem(items[0], true)
+    else if (activeIdx.value >= 0) addItem(items[activeIdx.value], true)
   }
 }
 </script>
