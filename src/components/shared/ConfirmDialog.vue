@@ -25,16 +25,24 @@
   </Teleport>
 </template>
 
-<script setup>
-defineProps({
-  modelValue: Boolean,
-  title: { type: String, default: 'Confirm' },
-  message: { type: String, default: 'Are you sure?' },
-  confirmLabel: { type: String, default: 'Confirm' },
-  danger: { type: Boolean, default: false }
+<script setup lang="ts">
+withDefaults(defineProps<{
+  modelValue: boolean
+  title?: string
+  message?: string
+  confirmLabel?: string
+  danger?: boolean
+}>(), {
+  title: 'Confirm',
+  message: 'Are you sure?',
+  confirmLabel: 'Confirm',
+  danger: false
 })
 
-const emit = defineEmits(['update:modelValue', 'confirm'])
+const emit = defineEmits<{
+  'update:modelValue': [value: boolean]
+  confirm: []
+}>()
 
 function confirm() {
   emit('confirm')

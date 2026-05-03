@@ -57,6 +57,14 @@
             />
             <p class="text-xs text-gray-400 mt-1">Auto-set: €5 for €25, €10 for €50</p>
           </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Shopping Date</label>
+            <input
+              v-model="targetDate"
+              type="date"
+              class="input w-full px-4 py-3 text-base"
+            />
+          </div>
         </div>
         <p v-if="error" class="text-red-500 text-sm mt-2">{{ error }}</p>
         <div class="flex gap-3 mt-5">
@@ -68,9 +76,9 @@
   </Teleport>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, nextTick, watch } from 'vue'
-import { useListsStore } from '../../stores/listsStore.js'
+import { useListsStore } from '../../stores/listsStore.ts'
 
 const store = useListsStore()
 
@@ -78,33 +86,36 @@ const sheetOpen = ref(false)
 const name = ref('')
 const target = ref('')
 const discount = ref('')
+const targetDate = ref('')
 const error = ref('')
-const nameInput = ref(null)
-const targetInput = ref(null)
+const nameInput = ref<HTMLInputElement | null>(null)
+const targetInput = ref<HTMLInputElement | null>(null)
 
 watch(sheetOpen, (val) => {
   if (val) {
     name.value = ''
     target.value = ''
     discount.value = ''
+    targetDate.value = new Date().toISOString().slice(0, 10)
     error.value = ''
     nextTick(() => nameInput.value?.focus())
   }
 })
 
-function syncDiscount() {
+function syncDiscount(): void {
   const t = parseFloat(target.value)
-  if (t === 25) discount.value = 5
-  else if (t === 50) discount.value = 10
-  else discount.value = 0
+  if (t === 25) discount.value = '5'
+  else if (t === 50) discount.value = '10'
+  else discount.value = '0'
 }
 
 async function submit() {
   error.value = ''
   if (!name.value.trim()) { error.value = 'Name is required'; return }
+  if (!targetDate.value) { error.value = 'Shopping date is required'; return }
   const t = parseFloat(target.value) || null
   const d = parseFloat(discount.value) || 0
-  await store.createList(name.value.trim(), t, d)
+  await store.createList(name.value.trim(), targetDate.value, t, d)
   close()
 }
 

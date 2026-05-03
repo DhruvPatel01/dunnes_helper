@@ -136,38 +136,47 @@
   </Teleport>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, reactive, watch } from 'vue'
-import { useCatalogStore } from '../../stores/catalogStore.js'
+import { useCatalogStore } from '../../stores/catalogStore.ts'
+import type { CatalogProduct } from '../../types'
 
-const props = defineProps({
-  modelValue: Boolean,
-  data: { type: Object, default: null }
-})
-const emit = defineEmits(['update:modelValue', 'done'])
+type Step = 1 | 2 | 'replace-confirm'
+type ResolutionAction = 'skip' | 'merge' | 'add' | 'rename'
+interface Resolution { action: ResolutionAction; name: string }
+interface Conflict { existing: CatalogProduct & { id: number }; incoming: CatalogProduct }
+
+const props = defineProps<{
+  modelValue: boolean
+  data: { incoming: CatalogProduct[] } | null
+}>()
+const emit = defineEmits<{
+  'update:modelValue': [value: boolean]
+  done: [message: string]
+}>()
 
 const catalog = useCatalogStore()
 
-const step = ref(1)
-const resolutions = reactive({})
+const step = ref<Step>(1)
+const resolutions = reactive<Record<number, Resolution>>({})
 
-const options = [
+const options: Array<{ action: ResolutionAction; label: string; activeClass: string }> = [
   { action: 'skip',   label: 'Skip',       activeClass: 'border-gray-400 text-gray-600 bg-gray-100' },
   { action: 'merge',  label: 'Merge price', activeClass: 'border-primary text-primary bg-primary/10' },
   { action: 'add',    label: 'Add new',     activeClass: 'border-green-500 text-green-700 bg-green-50' },
   { action: 'rename', label: 'Rename →',    activeClass: 'border-amber-400 text-amber-700 bg-amber-50' },
 ]
 
-const conflicts = computed(() => {
+const conflicts = computed<Conflict[]>(() => {
   if (!props.data) return []
   return props.data.incoming
     .map(inc => {
       const existing = catalog.items.find(
         e => e.name.toLowerCase() === inc.name.toLowerCase()
       )
-      return existing ? { existing, incoming: inc } : null
+      return (existing?.id !== undefined) ? { existing: existing as CatalogProduct & { id: number }, incoming: inc } : null
     })
-    .filter(Boolean)
+    .filter((x): x is Conflict => x !== null)
 })
 
 const newItems = computed(() => {
@@ -182,7 +191,7 @@ const newItemsString = computed(() => {
 watch(() => props.modelValue, (val) => {
   if (val) {
     step.value = 1
-    Object.keys(resolutions).forEach(k => delete resolutions[k])
+    Object.keys(resolutions).forEach(k => delete resolutions[Number(k)])
   }
 })
 
@@ -194,7 +203,7 @@ watch(conflicts, (list) => {
   })
 }, { immediate: true })
 
-function setResolution(id, action, incomingName) {
+function setResolution(id: number, action: ResolutionAction, incomingName: string): void {
   resolutions[id] = { action, name: action === 'rename' ? incomingName : resolutions[id]?.name ?? incomingName }
 }
 
@@ -207,6 +216,7 @@ function chooseReplace() {
 }
 
 async function doReplace() {
+  if (!props.data) return
   await catalog.replaceAll(props.data.incoming)
   emit('done', `Replaced catalog with ${props.data.incoming.length} items.`)
   close()

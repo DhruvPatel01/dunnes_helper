@@ -106,13 +106,14 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue'
-import { useListsStore } from '../../stores/listsStore.js'
-import { useCatalogStore } from '../../stores/catalogStore.js'
+import { useListsStore } from '../../stores/listsStore.ts'
+import { useCatalogStore } from '../../stores/catalogStore.ts'
 import MoveItemPopup from './MoveItemPopup.vue'
+import type { ListItem } from '../../types'
 
-const props = defineProps({ item: Object, listId: String })
+const props = defineProps<{ item: ListItem; listId: string }>()
 const store = useListsStore()
 const catalog = useCatalogStore()
 
@@ -121,7 +122,7 @@ const moveOpen = ref(false)
 const newPrice = ref('')
 const permanent = ref(false)
 
-function applyNewPrice() {
+function applyNewPrice(): void {
   const amt = parseFloat(newPrice.value)
   if (!isNaN(amt) && amt >= 0) {
     store.updateItemPrice(props.listId, props.item.productId, amt, permanent.value)

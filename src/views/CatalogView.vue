@@ -11,8 +11,8 @@
   </div>
 </template>
 
-<script setup>
-import { useCatalogStore } from '../stores/catalogStore.js'
+<script setup lang="ts">
+import { useCatalogStore } from '../stores/catalogStore.ts'
 import CatalogList from '../components/catalog/CatalogList.vue'
 import ImportExportPanel from '../components/catalog/ImportExportPanel.vue'
 

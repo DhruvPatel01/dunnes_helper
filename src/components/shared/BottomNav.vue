@@ -15,10 +15,12 @@
   </nav>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { h, inject } from 'vue'
+import type { Ref } from 'vue'
+import type { ViewType } from '../../types'
 
-const currentView = inject('currentView')
+const currentView = inject<Ref<ViewType>>('currentView')
 
 const ListsIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
   h('rect', { x: '3', y: '5', width: '18', height: '4', rx: '1' }),
@@ -40,14 +42,14 @@ const ClockIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: '
   h('polyline', { points: '12 6 12 12 16 14' })
 ])
 
-const tabs = [
+const tabs: Array<{ id: ViewType; label: string; icon: () => unknown }> = [
   { id: 'lists', label: 'Lists', icon: ListsIcon },
   { id: 'catalog', label: 'Catalog', icon: ListIcon },
   { id: 'history', label: 'History', icon: ClockIcon }
 ]
 
-function navigate(view) {
-  currentView.value = view
+function navigate(view: ViewType) {
+  currentView!.value = view
   window.location.hash = view
 }
 </script>

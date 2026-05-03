@@ -20,6 +20,7 @@
         >{{ list.items.length }}</span>
       </div>
       <div class="flex items-center gap-2 flex-shrink-0">
+        <span v-if="list.targetDate" class="text-xs text-gray-400">{{ formatDate(list.targetDate) }}</span>
         <span class="text-sm font-semibold text-gray-700">€{{ total.toFixed(2) }}</span>
         <span v-if="list.target != null" class="text-xs text-gray-400">/ €{{ list.target }}</span>
       </div>
@@ -112,6 +113,14 @@
             class="input flex-1 py-1.5"
           />
         </div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-gray-500 w-20">Date</span>
+          <input
+            v-model="editTargetDate"
+            type="date"
+            class="input flex-1 py-1.5"
+          />
+        </div>
         <button
           class="btn-primary w-full py-2 text-sm"
           @click="saveEdit"
@@ -138,14 +147,15 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useListsStore } from '../../stores/listsStore.js'
+import { useListsStore } from '../../stores/listsStore.ts'
 import ListSearchBar from './ListSearchBar.vue'
 import ListItemRow from './ListItemRow.vue'
 import ConfirmDialog from '../shared/ConfirmDialog.vue'
+import type { ShoppingList } from '../../types'
 
-const props = defineProps({ list: Object })
+const props = defineProps<{ list: ShoppingList }>()
 const store = useListsStore()
 
 const expanded = computed(() => store.isExpanded(props.list.id))
@@ -159,15 +169,21 @@ const progressPct = computed(() => {
 const confirmDelete = ref(false)
 const confirmArchive = ref(false)
 const editOpen = ref(false)
-const editTarget = ref(props.list.target ?? '')
+const editTarget = ref<number | string>(props.list.target ?? '')
 const editDiscount = ref(props.list.discount ?? 0)
 const editName = ref(props.list.name)
+const editTargetDate = ref(props.list.targetDate ?? '')
 
-async function saveEdit() {
-  const t = parseFloat(editTarget.value) || null
-  const d = parseFloat(editDiscount.value) || 0
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-IE', { weekday: 'short', day: 'numeric', month: 'short' })
+}
+
+async function saveEdit(): Promise<void> {
+  const t = parseFloat(String(editTarget.value)) || null
+  const d = parseFloat(String(editDiscount.value)) || 0
   await store.updateListTarget(props.list.id, t, d)
   await store.updateListName(props.list.id, editName.value.trim() || props.list.name)
+  if (editTargetDate.value) await store.updateListTargetDate(props.list.id, editTargetDate.value)
   editOpen.value = false
 }
 </script>

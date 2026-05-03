@@ -39,16 +39,17 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useCatalogStore } from '../../stores/catalogStore.js'
+import { useCatalogStore } from '../../stores/catalogStore.ts'
 import CatalogItem from './CatalogItem.vue'
 import ConfirmDialog from '../shared/ConfirmDialog.vue'
+import type { CatalogProduct } from '../../types'
 
 const catalog = useCatalogStore()
 const searchQuery = ref('')
 const showDeleteConfirm = ref(false)
-const deleteTarget = ref(null)
+const deleteTarget = ref<CatalogProduct | null>(null)
 
 const filtered = computed(() => {
   const q = searchQuery.value.toLowerCase().trim()
@@ -60,14 +61,14 @@ const filtered = computed(() => {
   )
 })
 
-function confirmDelete(product) {
+function confirmDelete(product: CatalogProduct): void {
   deleteTarget.value = product
   showDeleteConfirm.value = true
 }
 
-async function doDelete() {
+async function doDelete(): Promise<void> {
   if (deleteTarget.value) {
-    await catalog.deleteProduct(deleteTarget.value.id)
+    await catalog.deleteProduct(deleteTarget.value.id!)
     deleteTarget.value = null
   }
 }

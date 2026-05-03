@@ -1,7 +1,7 @@
-import { openDB } from 'idb'
+import { openDB, type IDBPDatabase } from 'idb'
 
 export const dbPromise = openDB('dunnes-helper-db', 1, {
-  upgrade(db) {
+  upgrade(db: IDBPDatabase) {
     const catalog = db.createObjectStore('catalog', { keyPath: 'id', autoIncrement: true })
     catalog.createIndex('purchaseCount', 'purchaseCount')
     catalog.createIndex('category', 'category')

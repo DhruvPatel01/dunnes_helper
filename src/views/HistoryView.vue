@@ -24,7 +24,7 @@
                 type="date"
                 :value="toDateInput(archivedList.date)"
                 class="text-sm font-semibold text-gray-900 border-b border-primary outline-none bg-transparent"
-                @input="saveDate(archivedList, $event.target.value)"
+                @input="saveDate(archivedList, ($event.target as HTMLInputElement).value)"
                 @blur="editingDateId = null"
               />
             </div>
@@ -121,71 +121,74 @@
 
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, toRaw } from 'vue'
-import { dbPromise } from '../db/index.js'
+import { dbPromise } from '../db/index.ts'
 import ConfirmDialog from '../components/shared/ConfirmDialog.vue'
-import { useListsStore } from '../stores/listsStore.js'
+import { useListsStore } from '../stores/listsStore.ts'
+import { useCatalogStore } from '../stores/catalogStore.ts'
+import type { HistoryEntry } from '../types'
 
 const listsStore = useListsStore()
+const catalog = useCatalogStore()
 
-const archivedLists = ref([])
-const expanded = ref(null)
+const archivedLists = ref<HistoryEntry[]>([])
+const expanded = ref<number | undefined | null>(null)
 const showDeleteConfirm = ref(false)
-const pendingDelete = ref(null)
-const editingDateId = ref(null)
+const pendingDelete = ref<HistoryEntry | null>(null)
+const editingDateId = ref<number | undefined | null>(null)
 
 onMounted(loadArchivedLists)
 
 async function loadArchivedLists() {
   const all = await (await dbPromise).getAll('history')
-  archivedLists.value = [...all].reverse()
-  if (archivedLists.value.length > 0 && expanded.value === null) {
-    expanded.value = archivedLists.value[0].id
-  }
+  archivedLists.value = [...all].sort((a, b) => b.date.localeCompare(a.date))
 }
 
-function toggle(id) {
+function toggle(id: number | undefined): void {
   expanded.value = expanded.value === id ? null : id
 }
 
-function formatDate(iso) {
+function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-IE', {
     weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'
   })
 }
 
-function toDateInput(iso) {
+function toDateInput(iso: string): string {
   return new Date(iso).toISOString().slice(0, 10)
 }
 
-async function saveDate(archivedList, dateStr) {
+async function saveDate(archivedList: HistoryEntry, dateStr: string): Promise<void> {
   if (!dateStr) return
   const newDate = new Date(dateStr).toISOString()
-  const updated = { ...toRaw(archivedList), date: newDate }
+  const updated: HistoryEntry = { ...toRaw(archivedList), date: newDate }
   await (await dbPromise).put('history', updated)
   const idx = archivedLists.value.findIndex(s => s.id === archivedList.id)
   if (idx !== -1) archivedLists.value[idx] = updated
+  archivedLists.value.sort((a, b) => b.date.localeCompare(a.date))
   editingDateId.value = null
+  await catalog.loadRecommendationScores()
 }
 
-async function unarchive(archivedList) {
+async function unarchive(archivedList: HistoryEntry): Promise<void> {
   await listsStore.unarchive(archivedList)
-  await (await dbPromise).delete('history', archivedList.id)
+  await (await dbPromise).delete('history', archivedList.id!)
   await loadArchivedLists()
   window.location.hash = 'lists'
 }
 
-function confirmDelete(archivedList) {
+function confirmDelete(archivedList: HistoryEntry): void {
   pendingDelete.value = archivedList
   showDeleteConfirm.value = true
 }
 
-async function doDelete() {
+async function doDelete(): Promise<void> {
   if (!pendingDelete.value) return
-  await (await dbPromise).delete('history', pendingDelete.value.id)
-  archivedLists.value = archivedLists.value.filter(s => s.id !== pendingDelete.value.id)
+  await (await dbPromise).delete('history', pendingDelete.value.id!)
+  archivedLists.value = archivedLists.value.filter(s => s.id !== pendingDelete.value!.id)
   if (expanded.value === pendingDelete.value.id) expanded.value = null
   pendingDelete.value = null
+  await catalog.loadRecommendationScores()
 }
 </script>

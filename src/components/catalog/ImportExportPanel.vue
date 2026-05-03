@@ -46,14 +46,15 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, toRaw } from 'vue'
-import { useCatalogStore } from '../../stores/catalogStore.js'
-import { useListsStore } from '../../stores/listsStore.js'
-import { parseCsv, generateCsv, downloadFile } from '../../utils/csv.js'
-import { exportAppData, parseAppDataJson, importAppData } from '../../utils/dataExport.js'
+import { useCatalogStore } from '../../stores/catalogStore.ts'
+import { useListsStore } from '../../stores/listsStore.ts'
+import { parseCsv, generateCsv, downloadFile } from '../../utils/csv.ts'
+import { exportAppData, parseAppDataJson, importAppData } from '../../utils/dataExport.ts'
 import ConfirmDialog from '../shared/ConfirmDialog.vue'
 import CsvImportModal from './CsvImportModal.vue'
+import type { AppBackup, CatalogProduct } from '../../types'
 
 const catalog = useCatalogStore()
 const lists = useListsStore()
@@ -62,11 +63,11 @@ const collapsed = ref(false)
 const message = ref('')
 const messageIsError = ref(false)
 const showCsvModal = ref(false)
-const csvImportData = ref(null)
+const csvImportData = ref<{ incoming: CatalogProduct[] } | null>(null)
 const showJsonConfirm = ref(false)
-const pendingJson = ref(null)
+const pendingJson = ref<AppBackup | null>(null)
 
-function showMsg(text, isError = false) {
+function showMsg(text: string, isError = false): void {
   message.value = text
   messageIsError.value = isError
   setTimeout(() => { message.value = '' }, 3000)
@@ -81,14 +82,15 @@ async function exportJson() {
   await exportAppData()
 }
 
-function handleCsvImport(e) {
-  const file = e.target.files[0]
+function handleCsvImport(e: Event): void {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
   if (!file) return
-  e.target.value = ''
+  input.value = ''
   const reader = new FileReader()
-  reader.onload = (ev) => {
+  reader.onload = (ev: ProgressEvent<FileReader>) => {
     try {
-      const rows = parseCsv(ev.target.result)
+      const rows = parseCsv(ev.target!.result as string)
       if (!rows.length) { showMsg('No valid rows found in CSV.', true); return }
       csvImportData.value = {
         incoming: rows.map(r => ({
@@ -108,14 +110,15 @@ function handleCsvImport(e) {
   reader.readAsText(file)
 }
 
-function handleJsonImport(e) {
-  const file = e.target.files[0]
+function handleJsonImport(e: Event): void {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
   if (!file) return
-  e.target.value = ''
+  input.value = ''
   const reader = new FileReader()
-  reader.onload = async (ev) => {
+  reader.onload = async (ev: ProgressEvent<FileReader>) => {
     try {
-      pendingJson.value = parseAppDataJson(ev.target.result)
+      pendingJson.value = parseAppDataJson(ev.target!.result as string)
       showJsonConfirm.value = true
     } catch {
       showMsg('Invalid backup file.', true)

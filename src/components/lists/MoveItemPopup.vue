@@ -26,22 +26,22 @@
   </Teleport>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
-import { useListsStore } from '../../stores/listsStore.js'
+import { useListsStore } from '../../stores/listsStore.ts'
 
-const props = defineProps({
-  modelValue: Boolean,
-  productId: Number,
-  fromListId: String
-})
-const emit = defineEmits(['update:modelValue'])
+const props = defineProps<{
+  modelValue: boolean
+  productId: number
+  fromListId: string
+}>()
+const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>()
 
 const store = useListsStore()
 
 const otherLists = computed(() => store.lists.filter(l => l.id !== props.fromListId))
 
-function move(toListId) {
+function move(toListId: string): void {
   store.moveItem(props.productId, props.fromListId, toListId)
   emit('update:modelValue', false)
 }

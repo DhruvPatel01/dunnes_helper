@@ -30,6 +30,7 @@
         :class="idx === activeIdx ? 'bg-primary-50' : ''"
         @mouseenter="activeIdx = idx"
         @mouseleave="activeIdx = -1"
+        @mousedown.prevent="addItem(product)"
       >
         <span class="item-name">{{ product.name }}</span>
         <div class="flex items-center gap-1 flex-shrink-0">
@@ -37,7 +38,7 @@
           <button
             v-if="itemQty(product.id) > 0"
             class="qty-btn"
-            @mousedown.prevent="decItem(product)"
+            @mousedown.stop.prevent="decItem(product)"
           >-</button>
           <span
             v-if="itemQty(product.id) > 0"
@@ -45,7 +46,7 @@
           >{{ itemQty(product.id) }}</span>
           <button
             class="qty-btn"
-            @mousedown.prevent="addItem(product)"
+            @mousedown.stop.prevent="addItem(product)"
           >+</button>
         </div>
       </div>
@@ -95,12 +96,13 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
-import { useCatalogStore } from '../../stores/catalogStore.js'
-import { useListsStore } from '../../stores/listsStore.js'
+import { useCatalogStore } from '../../stores/catalogStore.ts'
+import { useListsStore } from '../../stores/listsStore.ts'
+import type { CatalogProduct } from '../../types'
 
-const props = defineProps({ listId: String })
+const props = defineProps<{ listId: string }>()
 
 const catalog = useCatalogStore()
 const listsStore = useListsStore()
@@ -113,16 +115,14 @@ const newName = ref('')
 const newCategory = ref('')
 const newPrice = ref('')
 const createError = ref('')
-const priceInput = ref(null)
+const priceInput = ref<HTMLInputElement | null>(null)
 
 const categories = computed(() =>
   [...new Set(catalog.items.map(i => i.category).filter(Boolean))].sort()
 )
 
-// Extend this function to add custom recommendation/ranking logic.
-// Higher score = shown first. Receives the current listId and query string for context.
-function scoreItem(product, listId, query) {
-  return (product.purchaseCount || 0)
+function scoreItem(product: CatalogProduct): number {
+  return catalog.recommendationScores.get(product.id!) ?? -Infinity
 }
 
 const displayItems = computed(() => {
@@ -132,24 +132,25 @@ const displayItems = computed(() => {
     : [...catalog.items]
   return items
     .sort((a, b) =>
-      scoreItem(b, props.listId, q) - scoreItem(a, props.listId, q) ||
+      scoreItem(b) - scoreItem(a) ||
       a.name.localeCompare(b.name)
     )
 })
 
-function itemQty(productId) {
+function itemQty(productId: number | undefined): number {
+  if (productId === undefined) return 0
   const list = listsStore.lists.find(l => l.id === props.listId)
   return list?.items.find(i => i.productId === productId)?.quantity ?? 0
 }
 
-function decItem(product) {
-  const qty = itemQty(product.id)
-  if (qty > 0) listsStore.updateItemQuantity(props.listId, product.id, qty - 1)
+function decItem(product: CatalogProduct): void {
+  const qty = itemQty(product.id!)
+  if (qty > 0) listsStore.updateItemQuantity(props.listId, product.id!, qty - 1)
 }
 
 watch(displayItems, () => { activeIdx.value = -1 })
 
-function addItem(product, clearQuery = false) {
+function addItem(product: CatalogProduct, clearQuery = false): void {
   listsStore.addItemToList(props.listId, product)
   if (clearQuery) query.value = ''
   activeIdx.value = -1
@@ -176,7 +177,7 @@ async function submitCreate() {
   createOpen.value = false
 }
 
-function onKeydown(e) {
+function onKeydown(e: KeyboardEvent): void {
   const items = displayItems.value
   if (!items.length || createOpen.value) return
   if (e.key === 'ArrowDown') {

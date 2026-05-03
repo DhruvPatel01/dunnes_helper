@@ -53,7 +53,7 @@
       </div>
       <button
         class="w-9 h-9 flex items-center justify-center rounded-lg text-red-400 active:bg-red-50"
-        @click="$emit('delete', product.id)"
+        @click="$emit('delete', product.id!)"
       >
         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="3 6 5 6 21 6" />
@@ -66,57 +66,57 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, nextTick } from 'vue'
-import { useCatalogStore } from '../../stores/catalogStore.js'
+import { useCatalogStore } from '../../stores/catalogStore.ts'
+import type { CatalogProduct } from '../../types'
 
-const props = defineProps({ product: { type: Object, required: true } })
-defineEmits(['delete'])
+const props = defineProps<{ product: CatalogProduct }>()
+defineEmits<{ delete: [id: number] }>()
 
 const catalog = useCatalogStore()
 const editing = ref(false)
 const editName = ref('')
 const editCategory = ref('')
 const editPrice = ref('')
-const nameInput = ref(null)
-const categoryInput = ref(null)
-const priceInput = ref(null)
+const nameInput = ref<HTMLInputElement | null>(null)
+const categoryInput = ref<HTMLInputElement | null>(null)
+const priceInput = ref<HTMLInputElement | null>(null)
 
-function startEdit(area) {
+function startEdit(area: 'name' | 'category' | 'price'): void {
   editName.value = props.product.name
   editPrice.value = props.product.price.toFixed(2)
   editCategory.value = props.product.category
   editing.value = true
-  if (area === "name")
+  if (area === 'name')
     nextTick(() => nameInput.value?.select())
-  else if (area === "category")
+  else if (area === 'category')
     nextTick(() => categoryInput.value?.select())
   else
-    nextTick(() => priceInput.value?.select())    
+    nextTick(() => priceInput.value?.select())
 }
 
-function focusPrice() {
+function focusPrice(): void {
   priceInput.value?.select()
 }
 
-function focusCategory() {
+function focusCategory(): void {
   categoryInput.value?.select()
 }
 
-async function save() {
+async function save(): Promise<void> {
   const name = editName.value.trim()
   const price = parseFloat(editPrice.value)
   const category = editCategory.value.trim()
-  const updates = {}
+  const updates: Partial<CatalogProduct> = {}
   if (name && name !== props.product.name) updates.name = name
   if (category && category !== props.product.category) updates.category = category
   if (price > 0 && price !== props.product.price) updates.price = price
-  if (Object.keys(updates).length) await catalog.updateProduct(props.product.id, updates)
+  if (Object.keys(updates).length) await catalog.updateProduct(props.product.id!, updates)
   editing.value = false
 }
 
-function cancelEdit() {
+function cancelEdit(): void {
   editing.value = false
-  console.log("Cancelling")
 }
 </script>

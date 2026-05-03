@@ -11,8 +11,8 @@
   </div>
 </template>
 
-<script setup>
-import { useListsStore } from '../stores/listsStore.js'
+<script setup lang="ts">
+import { useListsStore } from '../stores/listsStore.ts'
 import ListsHeader from '../components/lists/ListsHeader.vue'
 import ListCard from '../components/lists/ListCard.vue'
 
