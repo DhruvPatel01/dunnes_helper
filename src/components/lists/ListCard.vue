@@ -37,11 +37,16 @@
           </span>
           <span class="text-gray-400">€{{ total.toFixed(2) }} / €{{ list.target.toFixed(2) }}</span>
         </div>
-        <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+        <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden flex">
           <div
-            class="h-full rounded-full transition-all"
+            class="h-full transition-all duration-300"
             :class="gap < 0 ? 'bg-red-400' : 'bg-primary'"
-            :style="{ width: progressPct + '%' }"
+            :style="{ width: checkedPct + '%' }"
+          />
+          <div
+            v-if="gap >= 0"
+            class="h-full transition-all duration-300 bg-primary/30"
+            :style="{ width: (progressPct - checkedPct) + '%' }"
           />
         </div>
         <div v-if="list.discount > 0" class="mt-1 text-xs text-green-600 font-medium">
@@ -56,7 +61,7 @@
       </div>
       <div v-else>
         <ListItemRow
-          v-for="item in list.items"
+          v-for="item in sortedItems"
           :key="item.productId"
           :item="item"
           :list-id="list.id"
@@ -161,9 +166,23 @@ const store = useListsStore()
 const expanded = computed(() => store.isExpanded(props.list.id))
 const total = computed(() => store.listTotal(props.list.id))
 const gap = computed(() => store.listGap(props.list.id) ?? 0)
+const sortedItems = computed(() =>
+  [...props.list.items].sort((a, b) => Number(a.checked) - Number(b.checked))
+)
+
 const progressPct = computed(() => {
   if (props.list.target == null || props.list.target === 0) return 0
   return Math.min(100, (total.value / props.list.target) * 100)
+})
+
+const checkedTotal = computed(() =>
+  props.list.items
+    .filter(i => i.checked)
+    .reduce((sum, i) => sum + i.sessionPrice * i.quantity, 0)
+)
+const checkedPct = computed(() => {
+  if (!props.list.target) return 0
+  return Math.min(100, (checkedTotal.value / props.list.target) * 100)
 })
 
 const confirmDelete = ref(false)

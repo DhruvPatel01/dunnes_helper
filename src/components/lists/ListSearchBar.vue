@@ -30,7 +30,7 @@
         :class="idx === activeIdx ? 'bg-primary-50' : ''"
         @mouseenter="activeIdx = idx"
         @mouseleave="activeIdx = -1"
-        @mousedown.prevent="addItem(product)"
+        @mousedown.prevent="addItem(product, true)"
       >
         <span class="item-name">{{ product.name }}</span>
         <div class="flex items-center gap-1 flex-shrink-0">
