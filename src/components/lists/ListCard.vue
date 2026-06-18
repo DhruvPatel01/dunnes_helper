@@ -145,7 +145,7 @@
     <ConfirmDialog
       v-model="confirmArchive"
       title="Archive list?"
-      :message="`Save &quot;${list.name}&quot; to history and remove it?`"
+      :message="`Save &quot;${list.name}&quot; to archive?`"
       confirm-label="Archive"
       @confirm="store.archiveList(list.id)"
     />
