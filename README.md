@@ -4,21 +4,35 @@ A personal, offline-first Progressive Web App (PWA) to help hit Dunnes Stores VA
 
 ## Setup
 
-**Prerequisites:** [Bun](https://bun.sh) installed.
+**Prerequisites:** [Node.js](https://nodejs.org/) 24 or newer with npm. The `.nvmrc` file selects Node 24 for local version managers and CI.
 
 ```bash
 # Install dependencies
-bun install
+npm ci
 
 # Start dev server (http://localhost:5173)
-bun run dev
+npm run dev
 
 # Build for production
-bun run build
+npm run build
 
 # Preview production build locally
-bun run preview
+npm run preview
 ```
+
+Use `npm install <package>` to add dependencies and commit the updated `package.json` and `package-lock.json`. Use `npm ci` after cloning or pulling to install the locked dependency versions.
+
+Validation (Python 3 required; browser tests also use an installed Chrome/Chromium):
+
+```bash
+npm run type-check
+npm run build
+npm test
+# Optional: verify a saved export in an isolated temporary browser profile
+python3 tests/run.py --backup 'dunnes-helper-backup(1).json'
+```
+
+The regression runner uses Python's standard library and the existing project dependencies. It downloads no test packages and does not access your normal browser profile.
 
 ### Tech stack
 

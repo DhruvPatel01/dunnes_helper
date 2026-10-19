@@ -3,14 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "type-check": "vue-tsc --noEmit"
+    "type-check": "vue-tsc --noEmit",
+    "test": "python3 tests/run.py"
   },
   "dependencies": {
     "idb": "^8.0.0",
+    "minisearch": "^7.2.0",
     "pinia": "^2.2.0",
     "vue": "^3.4.0"
   },

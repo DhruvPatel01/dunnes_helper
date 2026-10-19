@@ -33,24 +33,24 @@
         <div class="flex items-center justify-between text-xs mb-1">
           <span class="font-medium text-gray-700">
             <span v-if="gap > 0" class="text-gray-600">€{{ gap.toFixed(2) }} to go</span>
-            <span v-else class="text-red-500">€{{ Math.abs(gap).toFixed(2) }} over</span>
+            <span v-else-if="gap === 0" class="text-primary">Target reached</span>
+            <span v-else :class="gap >= -1 ? 'text-amber-500' : 'text-red-500'">€{{ Math.abs(gap).toFixed(2) }} over</span>
           </span>
           <span class="text-gray-400">€{{ total.toFixed(2) }} / €{{ list.target.toFixed(2) }}</span>
         </div>
         <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden flex">
           <div
             class="h-full transition-all duration-300"
-            :class="gap < 0 ? 'bg-red-400' : 'bg-primary'"
+            :class="gap < -1 ? 'bg-red-400' : gap < 0 ? 'bg-amber-400' : 'bg-primary'"
             :style="{ width: checkedPct + '%' }"
           />
           <div
-            v-if="gap >= 0"
             class="h-full transition-all duration-300 bg-primary/30"
             :style="{ width: (progressPct - checkedPct) + '%' }"
           />
         </div>
         <div v-if="list.discount > 0" class="mt-1 text-xs text-green-600 font-medium">
-          €{{ list.discount }} voucher when you reach target
+          €{{ list.discount }} voucher {{ gap > 0 ? 'when you reach target' : 'target reached' }} · valid 1 week
         </div>
       </div>
 
@@ -130,6 +130,7 @@
           class="btn-primary w-full py-2 text-sm"
           @click="saveEdit"
         >Save</button>
+        <p v-if="editError" class="text-xs text-red-500">{{ editError }}</p>
       </div>
     </div>
 
@@ -153,7 +154,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { defaultDiscount, toCents } from '../../utils/money.ts'
 import { useListsStore } from '../../stores/listsStore.ts'
 import ListSearchBar from './ListSearchBar.vue'
 import ListItemRow from './ListItemRow.vue'
@@ -177,8 +179,8 @@ const progressPct = computed(() => {
 
 const checkedTotal = computed(() =>
   props.list.items
-    .filter(i => i.checked)
-    .reduce((sum, i) => sum + i.sessionPrice * i.quantity, 0)
+    .filter(i => i.checked && !i.unavailable)
+    .reduce((sum, i) => sum + toCents(i.sessionPrice) * i.quantity, 0) / 100
 )
 const checkedPct = computed(() => {
   if (!props.list.target) return 0
@@ -188,21 +190,41 @@ const checkedPct = computed(() => {
 const confirmDelete = ref(false)
 const confirmArchive = ref(false)
 const editOpen = ref(false)
+const editError = ref('')
 const editTarget = ref<number | string>(props.list.target ?? '')
 const editDiscount = ref(props.list.discount ?? 0)
 const editName = ref(props.list.name)
 const editTargetDate = ref(props.list.targetDate ?? '')
+
+watch(editOpen, open => {
+  if (!open) return
+  editTarget.value = props.list.target ?? ''
+  editDiscount.value = props.list.discount
+  editName.value = props.list.name
+  editTargetDate.value = props.list.targetDate
+  editError.value = ''
+})
+
+watch(editTarget, (target, previous) => {
+  if (editDiscount.value === defaultDiscount(Number(previous))) {
+    editDiscount.value = defaultDiscount(Number(target))
+  }
+}, { flush: 'sync' })
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-IE', { weekday: 'short', day: 'numeric', month: 'short' })
 }
 
 async function saveEdit(): Promise<void> {
-  const t = parseFloat(String(editTarget.value)) || null
-  const d = parseFloat(String(editDiscount.value)) || 0
+  const t = editTarget.value === '' ? null : Number(editTarget.value)
+  const d = Number(editDiscount.value)
+  if ((t != null && (!Number.isFinite(t) || t <= 0)) || !Number.isFinite(d) || d < 0) {
+    editError.value = 'Enter a positive target and a valid voucher amount'
+    return
+  }
   await store.updateListTarget(props.list.id, t, d)
   await store.updateListName(props.list.id, editName.value.trim() || props.list.name)
-  if (editTargetDate.value) await store.updateListTargetDate(props.list.id, editTargetDate.value)
+  await store.updateListTargetDate(props.list.id, editTargetDate.value)
   editOpen.value = false
 }
 </script>

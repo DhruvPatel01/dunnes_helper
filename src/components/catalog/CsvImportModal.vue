@@ -1,6 +1,7 @@
 <template>
   <Teleport to="body">
-    <div v-if="modelValue && data" class="modal-fullscreen">
+    <div v-if="modelValue && data" class="modal-fullscreen" :inert="busy || undefined">
+      <p v-if="error" class="p-4 text-sm text-red-500" role="alert">{{ error }}</p>
 
       <!-- Header -->
       <div class="page-header flex items-center justify-between">
@@ -158,6 +159,8 @@ const emit = defineEmits<{
 const catalog = useCatalogStore()
 
 const step = ref<Step>(1)
+const busy = ref(false)
+const error = ref('')
 const resolutions = reactive<Record<number, Resolution>>({})
 
 const options: Array<{ action: ResolutionAction; label: string; activeClass: string }> = [
@@ -191,6 +194,7 @@ const newItemsString = computed(() => {
 watch(() => props.modelValue, (val) => {
   if (val) {
     step.value = 1
+    error.value = ''
     Object.keys(resolutions).forEach(k => delete resolutions[Number(k)])
   }
 })
@@ -216,45 +220,61 @@ function chooseReplace() {
 }
 
 async function doReplace() {
-  if (!props.data) return
-  await catalog.replaceAll(props.data.incoming)
-  emit('done', `Replaced catalog with ${props.data.incoming.length} items.`)
-  close()
+  if (!props.data || busy.value) return
+  busy.value = true
+  try {
+    await catalog.replaceAll(props.data.incoming)
+    emit('done', `Replaced catalog with ${props.data.incoming.length} items.`)
+    close()
+  } catch {
+    error.value = 'Could not replace the catalog. Please try again.'
+  } finally { busy.value = false }
 }
 
 async function doAdd() {
-  let added = 0, merged = 0, skipped = 0
+  if (busy.value) return
+  busy.value = true
+  // Snapshot the preview: adding items changes the reactive conflict calculations.
+  const incoming = [...newItems.value]
+  const choices = conflicts.value.map(conflict => ({ ...conflict,
+    resolution: { ...(resolutions[conflict.existing.id] ?? { action: 'merge' }) }
+  }))
+  try {
+    let added = 0, merged = 0, skipped = 0
 
-  // Add all non-conflicting new items
-  for (const item of newItems.value) {
-    await catalog.addProduct(item.name, item.category, item.price)
-    added++
-  }
-
-  // Apply resolutions for conflicts
-  for (const c of conflicts.value) {
-    const res = resolutions[c.existing.id] ?? { action: 'merge' }
-    if (res.action === 'skip') {
-      skipped++
-    } else if (res.action === 'merge') {
-      await catalog.updateProduct(c.existing.id, { price: c.incoming.price })
-      merged++
-    } else if (res.action === 'add') {
-      await catalog.addProduct(c.incoming.name, c.incoming.category, c.incoming.price)
-      added++
-    } else if (res.action === 'rename') {
-      const name = res.name?.trim() || c.incoming.name
-      await catalog.addProduct(name, c.incoming.category, c.incoming.price)
+    // Add all non-conflicting new items
+    for (const item of incoming) {
+      await catalog.addProduct(item.name, item.category, item.price)
       added++
     }
-  }
 
-  const parts = []
-  if (added) parts.push(`${added} added`)
-  if (merged) parts.push(`${merged} merged`)
-  if (skipped) parts.push(`${skipped} skipped`)
-  emit('done', parts.join(', ') + '.')
-  close()
+    // Apply resolutions for conflicts
+    for (const c of choices) {
+      const res = c.resolution
+      if (res.action === 'skip') {
+        skipped++
+      } else if (res.action === 'merge') {
+        await catalog.updateProduct(c.existing.id, { price: c.incoming.price })
+        merged++
+      } else if (res.action === 'add') {
+        await catalog.addProduct(c.incoming.name, c.incoming.category, c.incoming.price)
+        added++
+      } else if (res.action === 'rename') {
+        const name = res.name?.trim() || c.incoming.name
+        await catalog.addProduct(name, c.incoming.category, c.incoming.price)
+        added++
+      }
+    }
+
+    const parts = []
+    if (added) parts.push(`${added} added`)
+    if (merged) parts.push(`${merged} merged`)
+    if (skipped) parts.push(`${skipped} skipped`)
+    emit('done', parts.join(', ') + '.')
+    close()
+  } catch {
+    error.value = 'Import stopped. Check the catalog before retrying.'
+  } finally { busy.value = false }
 }
 
 function close() {

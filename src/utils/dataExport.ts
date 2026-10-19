@@ -1,10 +1,13 @@
-import { dbPromise } from '../db/index.ts'
+import { dbPromise, writeTransaction } from '../db/index.ts'
 import { downloadFile } from './csv.ts'
-import type { AppBackup, StoreName } from '../types'
+import { validateAppBackup } from './backup.ts'
+import type { AppBackup } from '../types'
 
 export async function exportAppData(): Promise<void> {
   const db = await dbPromise
-  const [catalog, history, lists] = await Promise.all([db.getAll('catalog'), db.getAll('history'), db.getAll('lists')])
+  const tx = db.transaction(['catalog', 'history', 'lists'], 'readonly')
+  const [catalog, history, lists] = await Promise.all(['catalog', 'history', 'lists'].map(store => tx.objectStore(store).getAll()))
+  await tx.done
   const data: AppBackup = {
     version: 1,
     exportedAt: new Date().toISOString(),
@@ -16,26 +19,17 @@ export async function exportAppData(): Promise<void> {
 }
 
 export function parseAppDataJson(text: string): AppBackup {
-  const data = JSON.parse(text)
-  if (!data.version || !Array.isArray(data.catalog)) {
-    throw new Error('Invalid backup file format')
-  }
-  return data as AppBackup
+  return validateAppBackup(JSON.parse(text))
 }
 
 export async function importAppData(data: AppBackup): Promise<void> {
-  const db = await dbPromise
-  const tx = db.transaction(['catalog', 'history', 'lists'], 'readwrite')
-  const stores: StoreName[] = ['catalog', 'history', 'lists']
-
-  for (const store of stores) {
-    const items = data[store as keyof Pick<AppBackup, 'catalog' | 'history' | 'lists'>]
-    if (!Array.isArray(items)) continue
-    await tx.objectStore(store).clear()
-    for (const item of items) {
-      tx.objectStore(store).put(item)
+  const validated = validateAppBackup(data)
+  await writeTransaction(['catalog', 'history', 'lists'], async tx => {
+    const writes = []
+    for (const store of ['catalog', 'history', 'lists'] as const) {
+      writes.push(tx.objectStore(store).clear())
+      for (const item of validated[store]) writes.push(tx.objectStore(store).put(item))
     }
-  }
-
-  await tx.done
+    await Promise.all(writes)
+  })
 }

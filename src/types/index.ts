@@ -38,7 +38,9 @@ export interface HistoryItem {
 
 export interface HistoryEntry {
   id?: number
+  // Archive timestamp. Older records use this as their purchase date too.
   date: string
+  targetDate?: string
   name: string
   target: number
   discount: number

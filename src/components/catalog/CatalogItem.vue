@@ -16,12 +16,11 @@
       </p>
     </div>
     <div class="flex-1 min-w-0">
-      <input
+      <CategoryInput
         v-if="editing"
         ref="categoryInput"
         v-model="editCategory"
-        type="text"
-        class="w-full font-medium text-gray-900 border-b border-primary outline-none bg-transparent"
+        input-class="w-full font-medium text-gray-900 border-b border-primary outline-none bg-transparent"
         @keydown.enter="focusPrice"
         @keydown.escape="cancelEdit"
       />
@@ -69,6 +68,7 @@
 <script setup lang="ts">
 import { ref, nextTick } from 'vue'
 import { useCatalogStore } from '../../stores/catalogStore.ts'
+import CategoryInput from '../shared/CategoryInput.vue'
 import type { CatalogProduct } from '../../types'
 
 const props = defineProps<{ product: CatalogProduct }>()
@@ -80,7 +80,7 @@ const editName = ref('')
 const editCategory = ref('')
 const editPrice = ref('')
 const nameInput = ref<HTMLInputElement | null>(null)
-const categoryInput = ref<HTMLInputElement | null>(null)
+const categoryInput = ref<InstanceType<typeof CategoryInput> | null>(null)
 const priceInput = ref<HTMLInputElement | null>(null)
 
 function startEdit(area: 'name' | 'category' | 'price'): void {

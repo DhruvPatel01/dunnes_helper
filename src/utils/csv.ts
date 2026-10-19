@@ -1,32 +1,37 @@
 import type { CatalogProduct } from '../types'
 
 export function parseCsv(text: string): Record<string, string>[] {
-  const lines = text.trim().split(/\r?\n/)
-  if (lines.length < 2) return []
-  const headers = parseRow(lines[0])
-  return lines.slice(1).map(line => {
-    const values = parseRow(line)
-    return Object.fromEntries(headers.map((h, i) => [h.trim(), values[i]?.trim() ?? '']))
-  }).filter(row => row.name && row.price)
-}
-
-function parseRow(line: string): string[] {
-  const cells: string[] = []
-  let current = ''
-  let inQuotes = false
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i]
+  const rows: string[][] = []
+  let row: string[] = [], cell = '', inQuotes = false
+  const source = text.replace(/^\uFEFF/, '')
+  for (let i = 0; i < source.length; i++) {
+    const ch = source[i]
     if (ch === '"') {
-      if (inQuotes && line[i + 1] === '"') { current += '"'; i++ }
+      if (inQuotes && source[i + 1] === '"') { cell += '"'; i++ }
       else inQuotes = !inQuotes
     } else if (ch === ',' && !inQuotes) {
-      cells.push(current); current = ''
-    } else {
-      current += ch
-    }
+      row.push(cell); cell = ''
+    } else if ((ch === '\n' || ch === '\r') && !inQuotes) {
+      row.push(cell); rows.push(row); row = []; cell = ''
+      if (ch === '\r' && source[i + 1] === '\n') i++
+    } else cell += ch
   }
-  cells.push(current)
-  return cells
+  if (inQuotes) throw new Error('Unclosed quote in CSV')
+  row.push(cell)
+  rows.push(row)
+  const headers = rows.shift()!.map(header => header.trim().toLowerCase())
+  if (!headers.includes('name') || !headers.includes('price')) throw new Error('CSV needs name and price columns')
+  const names = new Set<string>()
+  return rows.filter(row => row.some(cell => cell.trim())).map(values => {
+    if (values.length !== headers.length) throw new Error('CSV column count does not match the header')
+    const row = Object.fromEntries(headers.map((header, i) => [header, values[i].trim()]))
+    const price = Number(row.price)
+    if (!row.name || !row.price || !Number.isFinite(price) || price < 0) throw new Error('Each CSV row needs a name and a valid price')
+    const name = row.name.toLowerCase()
+    if (names.has(name)) throw new Error(`Duplicate product in CSV: ${row.name}`)
+    names.add(name)
+    return { ...row, category: row.category ?? '' }
+  })
 }
 
 export function generateCsv(items: Pick<CatalogProduct, 'name' | 'category' | 'price'>[]): string {
@@ -37,7 +42,7 @@ export function generateCsv(items: Pick<CatalogProduct, 'name' | 'category' | 'p
 
 function escapeCell(val: unknown): string {
   const s = String(val)
-  return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s
+  return /[,"\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 
 export function downloadFile(content: string, filename: string, mimeType: string): void {
@@ -47,5 +52,5 @@ export function downloadFile(content: string, filename: string, mimeType: string
   a.href = url
   a.download = filename
   a.click()
-  URL.revokeObjectURL(url)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }

@@ -51,15 +51,9 @@ const searchQuery = ref('')
 const showDeleteConfirm = ref(false)
 const deleteTarget = ref<CatalogProduct | null>(null)
 
-const filtered = computed(() => {
-  const q = searchQuery.value.toLowerCase().trim()
-  const items = q
-    ? catalog.items.filter(i => i.name.toLowerCase().includes(q))
-    : catalog.items
-  return [...items].sort(
-    (a, b) => (b.purchaseCount || 0) - (a.purchaseCount || 0) || a.name.localeCompare(b.name)
-  )
-})
+const filtered = computed(() => catalog.searchProducts(searchQuery.value,
+  (a, b) => (b.purchaseCount || 0) - (a.purchaseCount || 0) || a.name.localeCompare(b.name)
+))
 
 function confirmDelete(product: CatalogProduct): void {
   deleteTarget.value = product

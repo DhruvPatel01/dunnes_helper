@@ -79,6 +79,8 @@
 <script setup lang="ts">
 import { ref, nextTick, watch } from 'vue'
 import { useListsStore } from '../../stores/listsStore.ts'
+import { defaultDiscount } from '../../utils/money.ts'
+import { localDateInput } from '../../utils/dates.ts'
 
 const store = useListsStore()
 
@@ -93,10 +95,11 @@ const targetInput = ref<HTMLInputElement | null>(null)
 
 watch(sheetOpen, (val) => {
   if (val) {
-    name.value = ''
-    target.value = ''
-    discount.value = ''
-    targetDate.value = new Date().toISOString().slice(0, 10)
+    const today = new Date()
+    name.value = today.toLocaleDateString('en-IE', { day: 'numeric', month: 'short', year: 'numeric' })
+    target.value = '25'
+    discount.value = '5'
+    targetDate.value = localDateInput(today)
     error.value = ''
     nextTick(() => nameInput.value?.focus())
   }
@@ -104,17 +107,19 @@ watch(sheetOpen, (val) => {
 
 function syncDiscount(): void {
   const t = parseFloat(target.value)
-  if (t === 25) discount.value = '5'
-  else if (t === 50) discount.value = '10'
-  else discount.value = '0'
+  discount.value = String(Number.isFinite(t) ? defaultDiscount(t) : 0)
 }
 
 async function submit() {
   error.value = ''
   if (!name.value.trim()) { error.value = 'Name is required'; return }
   if (!targetDate.value) { error.value = 'Shopping date is required'; return }
-  const t = parseFloat(target.value) || null
-  const d = parseFloat(discount.value) || 0
+  const t = target.value === '' ? null : Number(target.value)
+  const d = Number(discount.value)
+  if ((t != null && (!Number.isFinite(t) || t <= 0)) || !Number.isFinite(d) || d < 0) {
+    error.value = 'Enter a positive target and a valid voucher amount'
+    return
+  }
   await store.createList(name.value.trim(), targetDate.value, t, d)
   close()
 }

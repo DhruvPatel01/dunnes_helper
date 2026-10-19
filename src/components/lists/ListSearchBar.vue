@@ -22,7 +22,7 @@
     </div>
 
     <!-- Unified dropdown: full catalog at rest, narrows as user types -->
-    <div v-if="focused && displayItems.length > 0 && !createOpen" class="dropdown">
+    <div v-if="focused && displayItems.length > 0 && !createOpen" ref="dropdown" class="dropdown">
       <div
         v-for="(product, idx) in displayItems"
         :key="product.id"
@@ -30,7 +30,8 @@
         :class="idx === activeIdx ? 'bg-primary-50' : ''"
         @mouseenter="activeIdx = idx"
         @mouseleave="activeIdx = -1"
-        @mousedown.prevent="addItem(product, true)"
+        @mousedown.prevent
+        @click="addItem(product, true)"
       >
         <span class="item-name">{{ product.name }}</span>
         <div class="flex items-center gap-1 flex-shrink-0">
@@ -38,7 +39,8 @@
           <button
             v-if="itemQty(product.id) > 0"
             class="qty-btn"
-            @mousedown.stop.prevent="decItem(product)"
+            @mousedown.prevent
+            @click.stop="decItem(product)"
           >-</button>
           <span
             v-if="itemQty(product.id) > 0"
@@ -46,7 +48,8 @@
           >{{ itemQty(product.id) }}</span>
           <button
             class="qty-btn"
-            @mousedown.stop.prevent="addItem(product)"
+            @mousedown.prevent
+            @click.stop="addItem(product)"
           >+</button>
         </div>
       </div>
@@ -76,17 +79,10 @@
           />
         </div>
       </div>
-      <input
+      <CategoryInput
         v-model="newCategory"
-        list="category-options"
-        type="text"
-        placeholder="Category"
-        class="input w-full"
         @keydown.enter="submitCreate"
       />
-      <datalist id="category-options">
-        <option v-for="cat in categories" :key="cat" :value="cat" />
-      </datalist>
       <p v-if="createError" class="text-xs text-red-500">{{ createError }}</p>
       <div class="flex gap-2">
         <button class="action-btn border border-gray-200 text-gray-500" @click="createOpen = false">Cancel</button>
@@ -100,6 +96,7 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import { useCatalogStore } from '../../stores/catalogStore.ts'
 import { useListsStore } from '../../stores/listsStore.ts'
+import CategoryInput from '../shared/CategoryInput.vue'
 import type { CatalogProduct } from '../../types'
 
 const props = defineProps<{ listId: string }>()
@@ -116,26 +113,15 @@ const newCategory = ref('')
 const newPrice = ref('')
 const createError = ref('')
 const priceInput = ref<HTMLInputElement | null>(null)
-
-const categories = computed(() =>
-  [...new Set(catalog.items.map(i => i.category).filter(Boolean))].sort()
-)
+const dropdown = ref<HTMLElement | null>(null)
 
 function scoreItem(product: CatalogProduct): number {
   return catalog.recommendationScores.get(product.id!) ?? -Infinity
 }
 
-const displayItems = computed(() => {
-  const q = query.value.toLowerCase().trim()
-  const items = q
-    ? catalog.items.filter(p => p.name.toLowerCase().includes(q))
-    : [...catalog.items]
-  return items
-    .sort((a, b) =>
-      scoreItem(b) - scoreItem(a) ||
-      a.name.localeCompare(b.name)
-    )
-})
+const displayItems = computed(() => catalog.searchProducts(query.value, (a, b) =>
+  scoreItem(b) - scoreItem(a) || a.name.localeCompare(b.name)
+))
 
 function itemQty(productId: number | undefined): number {
   if (productId === undefined) return 0
@@ -170,7 +156,7 @@ async function submitCreate() {
   if (!newName.value.trim()) { createError.value = 'Name is required'; return }
   if (!newCategory.value.trim()) { createError.value = 'Category is required'; return }
   const p = parseFloat(newPrice.value)
-  if (!p || p <= 0) { createError.value = 'Enter a valid price'; return }
+  if (!Number.isFinite(p) || p <= 0) { createError.value = 'Enter a valid price'; return }
   const product = await catalog.addProduct(newName.value.trim(), newCategory.value.trim(), p)
   listsStore.addItemToList(props.listId, product)
   query.value = ''
@@ -187,8 +173,15 @@ function onKeydown(e: KeyboardEvent): void {
     e.preventDefault()
     activeIdx.value = Math.max(activeIdx.value - 1, -1)
   } else if (e.key === 'Enter') {
+    e.preventDefault()
     if (items.length === 1) addItem(items[0], true)
     else if (activeIdx.value >= 0) addItem(items[activeIdx.value], true)
+  } else if (e.key === 'Escape') {
+    focused.value = false
+    activeIdx.value = -1
+  }
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    nextTick(() => dropdown.value?.children[activeIdx.value]?.scrollIntoView({ block: 'nearest' }))
   }
 }
 </script>

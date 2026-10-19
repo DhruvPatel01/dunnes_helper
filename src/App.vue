@@ -20,9 +20,11 @@ import ListView from './views/ListView.vue'
 import CatalogView from './views/CatalogView.vue'
 import HistoryView from './views/HistoryView.vue'
 import type { ViewType } from './types'
+import { readLocalJson } from './utils/storage.ts'
 
-const _stored = JSON.parse(localStorage.getItem('dunnes-session') || '{}')
-const currentView = ref<ViewType>(_stored.currentView ?? 'lists')
+const stored = readLocalJson('dunnes-session')
+const storedView = stored && typeof stored === 'object' && 'currentView' in stored ? stored.currentView : null
+const currentView = ref<ViewType>(storedView === 'catalog' || storedView === 'history' ? storedView : 'lists')
 watch(currentView, val => localStorage.setItem('dunnes-session', JSON.stringify({ currentView: val })))
 provide('currentView', currentView)
 
@@ -40,7 +42,7 @@ onMounted(async () => {
   syncFromHash()
   window.addEventListener('hashchange', syncFromHash)
   await catalog.loadFromDb()
-  await catalog.loadRecommendationScores()
+  await catalog.refreshPurchaseHistory()
   await lists.init()
   if (import.meta.env.DEV) {
     ;(window as unknown as Record<string, unknown>).debugRecs = async () => {

@@ -38,7 +38,7 @@
     <ConfirmDialog
       v-model="showJsonConfirm"
       title="Restore backup?"
-      message="This will replace all existing products and history with the backup data."
+      message="This will replace all existing products, history, and shopping lists with the backup data."
       confirm-label="Restore"
       :danger="true"
       @confirm="doJsonImport"
@@ -103,8 +103,8 @@ function handleCsvImport(e: Event): void {
         }))
       }
       showCsvModal.value = true
-    } catch {
-      showMsg('Failed to parse CSV file.', true)
+    } catch (error) {
+      showMsg(error instanceof Error ? error.message : 'Failed to parse CSV file.', true)
     }
   }
   reader.readAsText(file)
@@ -132,6 +132,7 @@ async function doJsonImport() {
   try {
     await importAppData(toRaw(pendingJson.value))
     await Promise.all([catalog.loadFromDb(), lists.init()])
+    await catalog.refreshPurchaseHistory()
     const { catalog: c, history: h, lists: l } = pendingJson.value
     showMsg(`Restored ${c.length} products, ${(h || []).length} history entries, ${(l || []).length} lists.`)
   } catch (err) {

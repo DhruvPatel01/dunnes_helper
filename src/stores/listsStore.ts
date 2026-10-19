@@ -1,16 +1,22 @@
 import { defineStore } from 'pinia'
-import { ref, reactive } from 'vue'
-import { toRaw } from 'vue'
-import { dbPromise } from '../db/index.ts'
+import { ref, reactive, toRaw } from 'vue'
+import { dbPromise, writeTransaction } from '../db/index.ts'
 import { useCatalogStore } from './catalogStore.ts'
+import { defaultDiscount, roundMoney, toCents } from '../utils/money.ts'
+import { historyPurchaseDate, localDateInput } from '../utils/dates.ts'
 import type { ShoppingList, ListItem, CatalogProduct, HistoryEntry } from '../types'
 
 const INBOX_ID = 'inbox'
 
-function defaultDiscount(target: number): number {
-  if (target === 25) return 5
-  if (target === 50) return 10
-  return 0
+function validateTarget(target?: number | null, discount?: number): void {
+  if (target != null && (!Number.isFinite(target) || target <= 0)) throw new Error('Enter a positive target')
+  if (discount != null && (!Number.isFinite(discount) || discount < 0)) throw new Error('Enter a valid voucher amount')
+}
+
+function sortLists(lists: ShoppingList[]): void {
+  lists.sort((a, b) => Number(b.isInbox) - Number(a.isInbox) ||
+    (a.targetDate || a.createdAt.slice(0, 10)).localeCompare(b.targetDate || b.createdAt.slice(0, 10)) ||
+    a.createdAt.localeCompare(b.createdAt))
 }
 
 function makeInbox(): ShoppingList {
@@ -26,22 +32,19 @@ export const useListsStore = defineStore('lists', () => {
   const expandedListIds = reactive(new Set<string>())
 
   async function init(): Promise<void> {
-    const stored = await (await dbPromise).getAll('lists')
-    if (stored.length === 0) {
+    const stored: ShoppingList[] = await (await dbPromise).getAll('lists')
+    if (!stored.some(list => list.id === INBOX_ID)) {
       const inbox = makeInbox()
       await putListDb(inbox)
-      lists.value = [inbox]
-    } else {
-      lists.value = (stored as ShoppingList[]).sort((a, b) => {
-        if (a.isInbox) return -1
-        if (b.isInbox) return 1
-        const dateDiff = new Date(a.targetDate).getTime() - new Date(b.targetDate).getTime()
-        return dateDiff !== 0 ? dateDiff : new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-      })
+      stored.push(inbox)
     }
+    lists.value = stored.map(list => ({ ...list, targetDate: list.targetDate ?? '' }))
+    sortLists(lists.value)
+    expandedListIds.clear()
   }
 
-  async function createList(name: string, targetDate: string, target?: number | null, discountOverride?: number): Promise<void> {
+  async function createList(name: string, targetDate: string, target?: number | null, discountOverride?: number): Promise<ShoppingList> {
+    validateTarget(target, discountOverride)
     const disc = discountOverride !== undefined ? discountOverride : defaultDiscount(target ?? 0)
     const list: ShoppingList = {
       id: crypto.randomUUID(),
@@ -55,12 +58,8 @@ export const useListsStore = defineStore('lists', () => {
     }
     await putListDb(list)
     lists.value.push(list)
-    lists.value.sort((a, b) => {
-      if (a.isInbox) return -1
-      if (b.isInbox) return 1
-      const dateDiff = new Date(a.targetDate).getTime() - new Date(b.targetDate).getTime()
-      return dateDiff !== 0 ? dateDiff : new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-    })
+    sortLists(lists.value)
+    return list
   }
 
   async function updateListTargetDate(id: string, targetDate: string): Promise<void> {
@@ -68,12 +67,7 @@ export const useListsStore = defineStore('lists', () => {
     if (!list) return
     list.targetDate = targetDate
     await putListDb(list)
-    lists.value.sort((a, b) => {
-      if (a.isInbox) return -1
-      if (b.isInbox) return 1
-      const dateDiff = new Date(a.targetDate).getTime() - new Date(b.targetDate).getTime()
-      return dateDiff !== 0 ? dateDiff : new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-    })
+    sortLists(lists.value)
   }
 
   async function deleteList(id: string): Promise<void> {
@@ -84,6 +78,7 @@ export const useListsStore = defineStore('lists', () => {
   }
 
   async function updateListTarget(id: string, target: number | null, discountOverride?: number): Promise<void> {
+    validateTarget(target, discountOverride)
     const list = lists.value.find(l => l.id === id)
     if (!list) return
     list.target = target
@@ -111,11 +106,13 @@ export const useListsStore = defineStore('lists', () => {
   }
 
   async function addItemToList(listId: string, product: CatalogProduct): Promise<void> {
+    if (product.id == null) return
     const list = lists.value.find(l => l.id === listId)
     if (!list) return
     const existing = list.items.find(i => i.productId === product.id)
     if (existing) {
       existing.quantity++
+      existing.unavailable = false
     } else {
       list.items.push({
         productId: product.id!,
@@ -138,6 +135,7 @@ export const useListsStore = defineStore('lists', () => {
   }
 
   async function updateItemQuantity(listId: string, productId: number, qty: number): Promise<void> {
+    if (!Number.isSafeInteger(qty)) return
     const list = lists.value.find(l => l.id === listId)
     if (!list) return
     if (qty <= 0) {
@@ -150,12 +148,16 @@ export const useListsStore = defineStore('lists', () => {
   }
 
   async function updateItemPrice(listId: string, productId: number, newPrice: number, permanent = false): Promise<void> {
+    if (!Number.isFinite(newPrice) || newPrice < 0) return
     const list = lists.value.find(l => l.id === listId)
     if (!list) return
     const item = list.items.find(i => i.productId === productId)
     if (!item) return
-    item.sessionPrice = Math.max(0, newPrice)
-    if (permanent) item.catalogPrice = Math.max(0, newPrice)
+    item.sessionPrice = roundMoney(newPrice)
+    if (permanent) {
+      await useCatalogStore().updateProduct(productId, { price: item.sessionPrice })
+      item.catalogPrice = item.sessionPrice
+    }
     await putListDb(list)
   }
 
@@ -172,7 +174,7 @@ export const useListsStore = defineStore('lists', () => {
     const list = lists.value.find(l => l.id === listId)
     if (!list) return
     const item = list.items.find(i => i.productId === productId)
-    if (!item) return
+    if (!item || item.unavailable) return
     item.checked = !item.checked
     await putListDb(list)
   }
@@ -188,9 +190,12 @@ export const useListsStore = defineStore('lists', () => {
   }
 
   async function moveItem(productId: number, fromListId: string, toListId: string): Promise<void> {
-    const fromList = lists.value.find(l => l.id === fromListId)
-    const toList = lists.value.find(l => l.id === toListId)
-    if (!fromList || !toList) return
+    if (fromListId === toListId) return
+    const from = lists.value.find(l => l.id === fromListId)
+    const to = lists.value.find(l => l.id === toListId)
+    if (!from || !to) return
+    const fromList = structuredClone(toRaw(from))
+    const toList = structuredClone(toRaw(to))
     const item = fromList.items.find(i => i.productId === productId)
     if (!item) return
     fromList.items = fromList.items.filter(i => i.productId !== productId)
@@ -200,8 +205,11 @@ export const useListsStore = defineStore('lists', () => {
     } else {
       toList.items.push({ ...item })
     }
-    await putListDb(fromList)
-    await putListDb(toList)
+    await writeTransaction(['lists'], async tx => {
+      await Promise.all([tx.objectStore('lists').put(fromList), tx.objectStore('lists').put(toList)])
+    })
+    Object.assign(from, fromList)
+    Object.assign(to, toList)
   }
 
   function listTotal(listId: string): number {
@@ -209,13 +217,13 @@ export const useListsStore = defineStore('lists', () => {
     if (!list) return 0
     return list.items
       .filter(i => !i.unavailable)
-      .reduce((sum, i) => sum + i.sessionPrice * i.quantity, 0)
+      .reduce((sum, i) => sum + toCents(i.sessionPrice) * i.quantity, 0) / 100
   }
 
   function listGap(listId: string): number | null {
     const list = lists.value.find(l => l.id === listId)
     if (!list || list.target == null) return null
-    return list.target - listTotal(listId)
+    return (toCents(list.target) - toCents(listTotal(listId))) / 100
   }
 
   function listTotalDiscount(listId: string): number {
@@ -223,30 +231,46 @@ export const useListsStore = defineStore('lists', () => {
     if (!list) return 0
     return list.items
       .filter(i => !i.unavailable)
-      .reduce((sum, i) => sum + (i.catalogPrice - i.sessionPrice) * i.quantity, 0)
+      .reduce((sum, i) => sum + (toCents(i.catalogPrice) - toCents(i.sessionPrice)) * i.quantity, 0) / 100
   }
 
   async function unarchive(archivedList: HistoryEntry): Promise<void> {
-    const today = new Date().toISOString().slice(0, 10)
-    await createList(archivedList.name, today, archivedList.target || null, archivedList.discount)
-    const list = lists.value[lists.value.length - 1]
-    list.items = archivedList.items.map(i => ({
-      productId: i.productId ?? (crypto.randomUUID() as unknown as number),
-      name: i.name,
-      catalogPrice: i.price,
-      sessionPrice: i.price,
-      quantity: i.quantity,
-      checked: false,
-      unavailable: false
-    } satisfies ListItem))
-    await putListDb(list)
+    const list: ShoppingList = {
+      id: crypto.randomUUID(), name: archivedList.name, isInbox: false,
+      createdAt: new Date().toISOString(), targetDate: localDateInput(historyPurchaseDate(archivedList)),
+      target: archivedList.target || null, discount: archivedList.discount,
+      items: archivedList.items.map(i => ({
+        productId: i.productId,
+        name: i.name,
+        catalogPrice: i.price,
+        sessionPrice: i.price,
+        quantity: i.quantity,
+        checked: false,
+        unavailable: false
+      } satisfies ListItem))
+    }
+    const restored = await writeTransaction(['lists', 'history'], async tx => {
+      // Reading inside the transaction also prevents duplicate restores across tabs.
+      const stored = archivedList.id == null ? null : await tx.objectStore('history').get(archivedList.id)
+      if (!stored) return false
+      await Promise.all([
+        tx.objectStore('lists').put(list),
+        tx.objectStore('history').delete(archivedList.id!)
+      ])
+      return true
+    })
+    if (!restored) return
+    lists.value.push(list)
+    sortLists(lists.value)
+    await useCatalogStore().refreshPurchaseHistory()
   }
 
   async function archiveList(listId: string): Promise<void> {
     const list = lists.value.find(l => l.id === listId)
-    if (!list) { console.error('archiveList: list not found', listId); return }
+    if (!list || list.isInbox) return
     const entry: HistoryEntry = {
       date: new Date().toISOString(),
+      targetDate: list.targetDate,
       name: list.name,
       target: list.target ?? 0,
       discount: list.discount,
@@ -258,18 +282,20 @@ export const useListsStore = defineStore('lists', () => {
         .map(i => ({ name: i.name })),
       totalSpent: listTotal(listId)
     }
-    try {
-      await (await dbPromise).add('history', entry)
-    } catch (e) {
-      console.error('archiveList: addHistoryEntry failed', e)
-      return
-    }
+    const archived = await writeTransaction(['history', 'lists'], async tx => {
+      const stored = await tx.objectStore('lists').get(listId)
+      if (!stored) return false
+      await Promise.all([
+        tx.objectStore('history').add(entry),
+        tx.objectStore('lists').delete(listId)
+      ])
+      return true
+    })
+    if (!archived) return
+    expandedListIds.delete(listId)
+    lists.value = lists.value.filter(l => l.id !== listId)
     const catalog = useCatalogStore()
-    for (const item of entry.items) {
-      await catalog.incrementPurchaseCount(item.productId)
-    }
-    await catalog.loadRecommendationScores()
-    await deleteList(listId)
+    await catalog.refreshPurchaseHistory()
   }
 
   return {

@@ -88,7 +88,7 @@
         @click="applyNewPrice"
       >Apply</button>
       <button
-        v-if="item.sessionPrice < item.catalogPrice"
+        v-if="item.sessionPrice !== item.catalogPrice"
         class="text-xs text-gray-400 underline"
         @click="store.resetItemPrice(listId, item.productId); priceOpen = false"
       >Reset</button>
@@ -109,24 +109,21 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useListsStore } from '../../stores/listsStore.ts'
-import { useCatalogStore } from '../../stores/catalogStore.ts'
 import MoveItemPopup from './MoveItemPopup.vue'
 import type { ListItem } from '../../types'
 
 const props = defineProps<{ item: ListItem; listId: string }>()
 const store = useListsStore()
-const catalog = useCatalogStore()
 
 const priceOpen = ref(false)
 const moveOpen = ref(false)
 const newPrice = ref('')
 const permanent = ref(false)
 
-function applyNewPrice(): void {
+async function applyNewPrice(): Promise<void> {
   const amt = parseFloat(newPrice.value)
-  if (!isNaN(amt) && amt >= 0) {
-    store.updateItemPrice(props.listId, props.item.productId, amt, permanent.value)
-    if (permanent.value) catalog.updateProduct(props.item.productId, { price: amt })
+  if (Number.isFinite(amt) && amt >= 0) {
+    await store.updateItemPrice(props.listId, props.item.productId, amt, permanent.value)
   }
   priceOpen.value = false
   permanent.value = false

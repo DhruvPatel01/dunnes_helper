@@ -17,19 +17,19 @@
 
       <div v-for="archivedList in archivedLists" :key="archivedList.id" class="bg-white border-b border-gray-100">
         <div class="flex items-center px-4 py-4">
-          <button class="flex-1 text-left" @click="toggle(archivedList.id)">
+          <div class="flex-1 text-left cursor-pointer" @click="toggle(archivedList.id)">
             <!-- Editable date -->
             <div v-if="editingDateId === archivedList.id" class="flex items-center gap-2" @click.stop>
               <input
                 type="date"
-                :value="toDateInput(archivedList.date)"
+                :value="toDateInput(archivedList)"
                 class="text-sm font-semibold text-gray-900 border-b border-primary outline-none bg-transparent"
                 @input="saveDate(archivedList, ($event.target as HTMLInputElement).value)"
                 @blur="editingDateId = null"
               />
             </div>
             <p v-else class="font-semibold text-gray-900 text-sm flex items-center gap-1.5">
-              {{ archivedList.name }} · {{ formatDate(archivedList.date) }}
+              {{ archivedList.name }} · {{ formatDate(archivedList) }}
               <button
                 class="text-gray-300 active:text-primary"
                 @click.stop="editingDateId = archivedList.id"
@@ -49,7 +49,7 @@
             <p v-if="archivedList.unavailableItems?.length" class="text-xs text-red-400 mt-0.5">
               {{ archivedList.unavailableItems.length }} item{{ archivedList.unavailableItems.length !== 1 ? 's' : '' }} unavailable
             </p>
-          </button>
+          </div>
           <div class="flex items-center gap-2 ml-3">
             <button
               class="p-1.5 rounded-lg text-gray-300 active:text-primary active:bg-primary/10"
@@ -113,7 +113,7 @@
   <ConfirmDialog
     v-model="showDeleteConfirm"
     title="Delete Archived List"
-    :message="`Delete the archived list from ${pendingDelete ? formatDate(pendingDelete.date) : ''}?`"
+    :message="`Delete the archived list from ${pendingDelete ? formatDate(pendingDelete) : ''}?`"
     confirm-label="Delete"
     :danger="true"
     @confirm="doDelete"
@@ -128,6 +128,7 @@ import ConfirmDialog from '../components/shared/ConfirmDialog.vue'
 import { useListsStore } from '../stores/listsStore.ts'
 import { useCatalogStore } from '../stores/catalogStore.ts'
 import type { HistoryEntry } from '../types'
+import { historyPurchaseDate, localDateInput } from '../utils/dates.ts'
 
 const listsStore = useListsStore()
 const catalog = useCatalogStore()
@@ -142,38 +143,40 @@ onMounted(loadArchivedLists)
 
 async function loadArchivedLists() {
   const all = await (await dbPromise).getAll('history')
-  archivedLists.value = [...all].sort((a, b) => b.date.localeCompare(a.date))
+  archivedLists.value = [...all].sort(comparePurchaseDates)
+}
+
+function comparePurchaseDates(a: HistoryEntry, b: HistoryEntry): number {
+  return historyPurchaseDate(b).getTime() - historyPurchaseDate(a).getTime() || b.date.localeCompare(a.date)
 }
 
 function toggle(id: number | undefined): void {
   expanded.value = expanded.value === id ? null : id
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-IE', {
+function formatDate(entry: HistoryEntry): string {
+  return historyPurchaseDate(entry).toLocaleDateString('en-IE', {
     weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'
   })
 }
 
-function toDateInput(iso: string): string {
-  return new Date(iso).toISOString().slice(0, 10)
+function toDateInput(entry: HistoryEntry): string {
+  return localDateInput(historyPurchaseDate(entry))
 }
 
 async function saveDate(archivedList: HistoryEntry, dateStr: string): Promise<void> {
   if (!dateStr) return
-  const newDate = new Date(dateStr).toISOString()
-  const updated: HistoryEntry = { ...toRaw(archivedList), date: newDate }
+  const updated: HistoryEntry = { ...toRaw(archivedList), targetDate: dateStr }
   await (await dbPromise).put('history', updated)
   const idx = archivedLists.value.findIndex(s => s.id === archivedList.id)
   if (idx !== -1) archivedLists.value[idx] = updated
-  archivedLists.value.sort((a, b) => b.date.localeCompare(a.date))
+  archivedLists.value.sort(comparePurchaseDates)
   editingDateId.value = null
-  await catalog.loadRecommendationScores()
+  await catalog.refreshPurchaseHistory()
 }
 
 async function unarchive(archivedList: HistoryEntry): Promise<void> {
   await listsStore.unarchive(archivedList)
-  await (await dbPromise).delete('history', archivedList.id!)
   await loadArchivedLists()
   window.location.hash = 'lists'
 }
@@ -189,6 +192,6 @@ async function doDelete(): Promise<void> {
   archivedLists.value = archivedLists.value.filter(s => s.id !== pendingDelete.value!.id)
   if (expanded.value === pendingDelete.value.id) expanded.value = null
   pendingDelete.value = null
-  await catalog.loadRecommendationScores()
+  await catalog.refreshPurchaseHistory()
 }
 </script>
